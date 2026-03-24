@@ -1,11 +1,13 @@
+export type TagType = 'AprilTag' | 'AprilTag2' | 'AprilTag3' | 'ArUco';
+export type CameraStatus = 'requesting' | 'ready' | 'error' | 'unsupported';
+export type DetectionCorner = [number, number];
+
 export interface DetectionResult {
   id: number;
-  corners: [number, number][];
-  tagType?: string;
+  corners: [DetectionCorner, DetectionCorner, DetectionCorner, DetectionCorner];
+  tagType?: TagType;
   family?: string;
 }
-
-export type TagType = 'AprilTag' | 'AprilTag2' | 'AprilTag3' | 'ArUco';
 
 export const TAG_FAMILIES: Record<TagType, string[]> = {
   AprilTag: [
@@ -42,4 +44,21 @@ export const TAG_FAMILIES: Record<TagType, string[]> = {
 export interface DetectionSettings {
   tagType: TagType | 'auto';
   family: string | 'auto';
+}
+
+export interface DetectionJob {
+  width: number;
+  height: number;
+  frame: number;
+  settings: DetectionSettings;
+}
+
+export interface DetectionWorkerRequest extends DetectionJob {
+  type: 'detect';
+}
+
+export interface DetectionWorkerResponse {
+  type: 'result';
+  frame: number;
+  detections: DetectionResult[];
 }

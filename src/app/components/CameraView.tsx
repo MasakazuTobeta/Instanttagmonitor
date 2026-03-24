@@ -1,54 +1,160 @@
-import { useRef, useEffect, useState } from 'react';
-import { DetectionResult, DetectionSettings, TagType, TAG_FAMILIES } from '../types/detection';
+import { useEffect, useRef, useState } from 'react';
+import { generateMockDetections } from '../lib/mockDetection';
+import {
+  CameraStatus,
+  DetectionResult,
+  DetectionSettings,
+  DetectionWorkerRequest,
+  DetectionWorkerResponse,
+} from '../types/detection';
 
 interface CameraViewProps {
   isDetecting: boolean;
   settings: DetectionSettings;
   onDetectionUpdate: (results: DetectionResult[]) => void;
+  onCameraStateChange: (status: CameraStatus, message?: string) => void;
 }
 
-export function CameraView({ isDetecting, settings, onDetectionUpdate }: CameraViewProps) {
+const DETECTION_FRAME_SKIP = 3;
+
+export function CameraView({
+  isDetecting,
+  settings,
+  onDetectionUpdate,
+  onCameraStateChange,
+}: CameraViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | null>(null);
+  const workerRef = useRef<Worker | null>(null);
+  const workerBusyRef = useRef(false);
+  const frameRef = useRef(0);
+  const isDetectingRef = useRef(isDetecting);
+  const [cameraStatus, setCameraStatus] = useState<CameraStatus>('requesting');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    isDetectingRef.current = isDetecting;
+  }, [isDetecting]);
+
+  useEffect(() => {
+    setupWorker();
     startCamera();
+
     return () => {
+      stopDetection();
       stopCamera();
+      workerRef.current?.terminate();
+      workerRef.current = null;
     };
   }, []);
 
   useEffect(() => {
-    if (isDetecting) {
+    if (isDetecting && cameraStatus === 'ready') {
       startDetection();
-    } else {
-      stopDetection();
+      return;
     }
-  }, [isDetecting]);
+
+    stopDetection();
+  }, [cameraStatus, isDetecting, settings]);
+
+  const updateCameraState = (status: CameraStatus, message?: string) => {
+    setCameraStatus(status);
+    setError(status === 'ready' ? null : message ?? null);
+    onCameraStateChange(status, message);
+  };
+
+  const setupWorker = () => {
+    if (typeof Worker === 'undefined') {
+      return;
+    }
+
+    try {
+      const worker = new Worker(new URL('../workers/mockDetectorWorker.ts', import.meta.url), {
+        type: 'module',
+      });
+
+      worker.onmessage = (event: MessageEvent<DetectionWorkerResponse>) => {
+        workerBusyRef.current = false;
+
+        if (!isDetectingRef.current) {
+          return;
+        }
+
+        drawDetections(event.data.detections);
+        onDetectionUpdate(event.data.detections);
+      };
+
+      worker.onerror = () => {
+        workerBusyRef.current = false;
+        workerRef.current?.terminate();
+        workerRef.current = null;
+      };
+
+      workerRef.current = worker;
+    } catch (workerError) {
+      console.warn('Mock detector worker could not be initialized.', workerError);
+      workerRef.current = null;
+    }
+  };
+
+  const ensureVideoMetadata = async (video: HTMLVideoElement) => {
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      return;
+    }
+
+    await new Promise<void>(resolve => {
+      const handleLoadedMetadata = () => {
+        video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        resolve();
+      };
+
+      video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    });
+  };
 
   const startCamera = async () => {
+    stopCamera();
+    updateCameraState('requesting');
+
+    if (!window.isSecureContext) {
+      updateCameraState('unsupported', 'カメラは HTTPS または localhost でのみ利用できます。');
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      updateCameraState('unsupported', 'このブラウザではカメラ API が利用できません。');
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
           facingMode: { ideal: 'environment' },
           width: { ideal: 640 },
-          height: { ideal: 480 }
-        }
+          height: { ideal: 480 },
+        },
       });
 
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+        const video = videoRef.current;
+        video.srcObject = stream;
         streamRef.current = stream;
-        await videoRef.current.play();
+        await video.play();
+        await ensureVideoMetadata(video);
+        resizeCanvas();
       }
-      setError(null);
+
+      updateCameraState('ready');
     } catch (err) {
       console.error('Camera access error:', err);
-      setError('カメラへのアクセスが拒否されました。設定を確認してください。');
+      const message =
+        err instanceof DOMException && err.name === 'NotAllowedError'
+          ? 'カメラへのアクセスが拒否されました。ブラウザ設定で許可してください。'
+          : 'カメラを起動できませんでした。ページを再読み込みして再試行してください。';
+      updateCameraState('error', message);
     }
   };
 
@@ -57,40 +163,46 @@ export function CameraView({ isDetecting, settings, onDetectionUpdate }: CameraV
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
   };
 
   const startDetection = () => {
+    stopDetection();
+    frameRef.current = 0;
+
     const detectFrame = () => {
-      if (!videoRef.current || !canvasRef.current || !isDetecting) return;
+      if (!videoRef.current || !isDetectingRef.current) {
+        return;
+      }
 
       const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-
-      if (!ctx || video.readyState !== video.HAVE_ENOUGH_DATA) {
+      if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
         animationFrameRef.current = requestAnimationFrame(detectFrame);
         return;
       }
 
-      // Set canvas size to match video
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      resizeCanvas();
+      frameRef.current += 1;
 
-      // Draw video frame to canvas
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      if (!workerBusyRef.current && frameRef.current % DETECTION_FRAME_SKIP === 0) {
+        const request: DetectionWorkerRequest = {
+          type: 'detect',
+          width: video.videoWidth || 640,
+          height: video.videoHeight || 480,
+          frame: frameRef.current,
+          settings,
+        };
 
-      // Mock detection - simulate AprilTag detection
-      // In production, this would call WASM detector
-      const mockDetections = generateMockDetections(canvas.width, canvas.height);
-      
-      // Draw detection overlays
-      drawDetections(ctx, mockDetections);
-      
-      // Update parent component
-      onDetectionUpdate(mockDetections);
+        workerBusyRef.current = true;
+
+        if (workerRef.current) {
+          workerRef.current.postMessage(request);
+        } else {
+          const detections = generateMockDetections(request);
+          drawDetections(detections);
+          onDetectionUpdate(detections);
+          workerBusyRef.current = false;
+        }
+      }
 
       animationFrameRef.current = requestAnimationFrame(detectFrame);
     };
@@ -99,73 +211,60 @@ export function CameraView({ isDetecting, settings, onDetectionUpdate }: CameraV
   };
 
   const stopDetection = () => {
-    if (animationFrameRef.current) {
+    if (animationFrameRef.current !== null) {
       cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
     }
-    // Clear canvas
-    if (canvasRef.current) {
-      const ctx = canvasRef.current.getContext('2d');
-      if (ctx) {
-        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      }
-    }
+
+    workerBusyRef.current = false;
+    clearCanvas();
     onDetectionUpdate([]);
   };
 
-  const generateMockDetections = (width: number, height: number): DetectionResult[] => {
-    // Simulate 1-2 random AprilTag detections
-    const numTags = Math.random() > 0.3 ? 1 : 2;
-    const results: DetectionResult[] = [];
-
-    for (let i = 0; i < numTags; i++) {
-      const centerX = width * (0.3 + Math.random() * 0.4);
-      const centerY = height * (0.3 + Math.random() * 0.4);
-      const size = 80 + Math.random() * 60;
-
-      // Generate random tag type and family based on settings
-      let tagType: string;
-      let family: string;
-
-      if (settings.tagType === 'auto') {
-        // Random tag type
-        const types: TagType[] = ['AprilTag', 'AprilTag2', 'AprilTag3', 'ArUco'];
-        tagType = types[Math.floor(Math.random() * types.length)];
-        const families = TAG_FAMILIES[tagType as TagType];
-        family = families[Math.floor(Math.random() * families.length)];
-      } else {
-        tagType = settings.tagType;
-        if (settings.family === 'auto') {
-          const families = TAG_FAMILIES[settings.tagType as TagType];
-          family = families[Math.floor(Math.random() * families.length)];
-        } else {
-          family = settings.family;
-        }
-      }
-
-      results.push({
-        id: Math.floor(Math.random() * 100),
-        tagType,
-        family,
-        corners: [
-          [centerX - size / 2, centerY - size / 2],
-          [centerX + size / 2, centerY - size / 2],
-          [centerX + size / 2, centerY + size / 2],
-          [centerX - size / 2, centerY + size / 2]
-        ]
-      });
+  const resizeCanvas = () => {
+    if (!videoRef.current || !canvasRef.current) {
+      return;
     }
 
-    return results;
+    const canvas = canvasRef.current;
+    const width = videoRef.current.videoWidth || 640;
+    const height = videoRef.current.videoHeight || 480;
+
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
   };
 
-  const drawDetections = (ctx: CanvasRenderingContext2D, detections: DetectionResult[]) => {
+  const clearCanvas = () => {
+    if (!canvasRef.current) {
+      return;
+    }
+
+    const ctx = canvasRef.current.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+  };
+
+  const drawDetections = (detections: DetectionResult[]) => {
+    if (!canvasRef.current) {
+      return;
+    }
+
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+
+    clearCanvas();
+
     detections.forEach(detection => {
-      // Draw corners
-      ctx.strokeStyle = '#00ff00';
+      ctx.strokeStyle = '#22c55e';
       ctx.lineWidth = 3;
       ctx.beginPath();
-      detection.corners.forEach((corner, i) => {
-        if (i === 0) {
+      detection.corners.forEach((corner, index) => {
+        if (index === 0) {
           ctx.moveTo(corner[0], corner[1]);
         } else {
           ctx.lineTo(corner[0], corner[1]);
@@ -174,62 +273,72 @@ export function CameraView({ isDetecting, settings, onDetectionUpdate }: CameraV
       ctx.closePath();
       ctx.stroke();
 
-      // Draw corner dots
-      ctx.fillStyle = '#00ff00';
+      ctx.fillStyle = '#22c55e';
       detection.corners.forEach(corner => {
         ctx.beginPath();
-        ctx.arc(corner[0], corner[1], 5, 0, 2 * Math.PI);
+        ctx.arc(corner[0], corner[1], 4, 0, 2 * Math.PI);
         ctx.fill();
       });
 
-      // Draw ID and type label
-      const centerX = detection.corners.reduce((sum, c) => sum + c[0], 0) / 4;
-      const centerY = detection.corners.reduce((sum, c) => sum + c[1], 0) / 4;
-      
-      // Background box
-      const labelHeight = detection.tagType ? 50 : 30;
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(centerX - 60, centerY - labelHeight / 2, 120, labelHeight);
-      
+      const anchorX = detection.corners[0][0];
+      const anchorY = detection.corners[0][1] - 52;
+
+      ctx.fillStyle = 'rgba(3, 7, 18, 0.82)';
+      ctx.fillRect(anchorX - 4, anchorY, 156, 48);
+
       ctx.fillStyle = '#00ff00';
-      ctx.font = 'bold 16px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      
-      if (detection.tagType) {
-        ctx.fillText(`ID: ${detection.id}`, centerX, centerY - 10);
-        ctx.font = '12px sans-serif';
-        ctx.fillStyle = '#88ff88';
-        ctx.fillText(`${detection.tagType}`, centerX, centerY + 10);
-      } else {
-        ctx.fillText(`ID: ${detection.id}`, centerX, centerY);
-      }
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillText(`ID ${detection.id}`, anchorX + 8, anchorY + 8);
+
+      ctx.fillStyle = '#bbf7d0';
+      ctx.font = '12px sans-serif';
+      ctx.fillText(
+        `${detection.tagType ?? 'Unknown'} / ${detection.family ?? 'auto'}`,
+        anchorX + 8,
+        anchorY + 26,
+      );
     });
   };
 
-  if (error) {
-    return (
-      <div className="relative w-full h-full flex items-center justify-center bg-black">
-        <div className="text-center p-6 bg-red-500/20 rounded-lg max-w-sm">
-          <p className="text-white">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="relative w-full h-full overflow-hidden bg-black">
+    <div className="relative h-full w-full overflow-hidden bg-black">
       <video
         ref={videoRef}
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 h-full w-full object-cover"
         autoPlay
         playsInline
         muted
       />
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 w-full h-full object-cover"
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
       />
+      <div className="pointer-events-none absolute bottom-36 left-4 z-10 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200 backdrop-blur">
+        Demo detector / Worker-ready pipeline
+      </div>
+      {cameraStatus === 'requesting' && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="rounded-2xl border border-white/10 bg-black/60 px-5 py-4 text-sm text-white">
+            カメラを初期化しています...
+          </div>
+        </div>
+      )}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/75 p-6 backdrop-blur-sm">
+          <div className="max-w-sm rounded-2xl border border-red-400/30 bg-red-950/60 p-6 text-center text-white shadow-2xl">
+            <p className="text-base font-semibold">カメラを利用できません</p>
+            <p className="mt-3 text-sm leading-6 text-red-100">{error}</p>
+            <button
+              onClick={startCamera}
+              className="mt-5 rounded-full bg-white px-5 py-2 text-sm font-semibold text-red-950 transition hover:bg-red-100"
+            >
+              再試行
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
