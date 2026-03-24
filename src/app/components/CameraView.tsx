@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { generateMockDetections } from '../lib/mockDetection';
 import {
   CameraStatus,
   DetectionResult,
@@ -8,6 +7,7 @@ import {
   DetectionWorkerResponse,
   DetectorBackend,
   PERFORMANCE_PROFILES,
+  REALTIME_DETECTOR_FAMILY,
 } from '../types/detection';
 
 interface CameraViewProps {
@@ -15,6 +15,16 @@ interface CameraViewProps {
   settings: DetectionSettings;
   onDetectionUpdate: (results: DetectionResult[], backend: DetectorBackend) => void;
   onCameraStateChange: (status: CameraStatus, message?: string) => void;
+}
+
+const EMPTY_DETECTIONS: DetectionResult[] = [];
+
+function supportsRealtimeDetection(settings: DetectionSettings) {
+  if (settings.tagType === 'ArUco') {
+    return false;
+  }
+
+  return settings.family === 'auto' || settings.family === REALTIME_DETECTOR_FAMILY;
 }
 
 export function CameraView({
@@ -34,10 +44,10 @@ export function CameraView({
   const frameRef = useRef(0);
   const isDetectingRef = useRef(isDetecting);
   const lastProfileRef = useRef(settings.performanceProfile);
-  const lastBackendRef = useRef<DetectorBackend>('mock');
+  const lastBackendRef = useRef<DetectorBackend>('unavailable');
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>('requesting');
   const [error, setError] = useState<string | null>(null);
-  const [pipelineLabel, setPipelineLabel] = useState('WASM detector standby');
+  const [pipelineLabel, setPipelineLabel] = useState('AprilTag detector standby');
 
   useEffect(() => {
     isDetectingRef.current = isDetecting;
@@ -100,20 +110,19 @@ export function CameraView({
 
   const setupWorker = () => {
     if (typeof Worker === 'undefined') {
-      setPipelineLabel('Worker unavailable / JS fallback');
+      lastBackendRef.current = 'unavailable';
+      setPipelineLabel('Worker unavailable');
       return;
     }
 
     try {
-      const worker = new Worker(new URL('../workers/detectorWorker.ts', import.meta.url), {
-        type: 'module',
-      });
+      const worker = new Worker(new URL('../workers/detectorWorker.js', import.meta.url));
 
       worker.onmessage = (event: MessageEvent<DetectionWorkerResponse>) => {
         workerBusyRef.current = false;
         lastBackendRef.current = event.data.backend;
         setPipelineLabel(
-          event.data.backend === 'wasm' ? 'Worker + WASM detector' : 'Worker + JS fallback',
+          event.data.backend === 'wasm' ? 'AprilTag tag36h11 active' : 'Detector unavailable',
         );
 
         if (!isDetectingRef.current) {
@@ -125,20 +134,20 @@ export function CameraView({
       };
 
       worker.onerror = workerError => {
-        console.warn('Detector worker failed, switching to mock fallback.', workerError);
+        console.warn('Detector worker failed.', workerError);
         workerBusyRef.current = false;
-        lastBackendRef.current = 'mock';
-        setPipelineLabel('Worker unavailable / JS fallback');
+        lastBackendRef.current = 'unavailable';
+        setPipelineLabel('Detector unavailable');
         workerRef.current?.terminate();
         workerRef.current = null;
       };
 
       workerRef.current = worker;
-      setPipelineLabel('WASM detector loading');
+      setPipelineLabel('AprilTag detector loading');
     } catch (workerError) {
       console.warn('Detector worker could not be initialized.', workerError);
-      lastBackendRef.current = 'mock';
-      setPipelineLabel('Worker unavailable / JS fallback');
+      lastBackendRef.current = 'unavailable';
+      setPipelineLabel('Detector unavailable');
       workerRef.current = null;
     }
   };
@@ -266,19 +275,22 @@ export function CameraView({
       frameRef.current += 1;
 
       if (!workerBusyRef.current && frameRef.current % performanceConfig.frameSkip === 0) {
+        if (!supportsRealtimeDetection(settings)) {
+          lastBackendRef.current = 'unavailable';
+          setPipelineLabel(`Currently supported: ${REALTIME_DETECTOR_FAMILY}`);
+          clearCanvas();
+          onDetectionUpdate(EMPTY_DETECTIONS, 'unavailable');
+          animationFrameRef.current = requestAnimationFrame(detectFrame);
+          return;
+        }
+
         const grayscale = extractGrayscaleFrame(video);
 
         if (!grayscale) {
-          const detections = generateMockDetections({
-            width: video.videoWidth || performanceConfig.width,
-            height: video.videoHeight || performanceConfig.height,
-            frame: frameRef.current,
-            settings,
-          });
-          lastBackendRef.current = 'mock';
-          setPipelineLabel('Canvas readback fallback');
-          drawDetections(detections);
-          onDetectionUpdate(detections, 'mock');
+          lastBackendRef.current = 'unavailable';
+          setPipelineLabel('Frame capture unavailable');
+          clearCanvas();
+          onDetectionUpdate(EMPTY_DETECTIONS, 'unavailable');
         } else {
           workerBusyRef.current = true;
           const request: DetectionWorkerRequest = {
@@ -293,16 +305,10 @@ export function CameraView({
           if (workerRef.current) {
             workerRef.current.postMessage(request, [request.grayscale]);
           } else {
-            const detections = generateMockDetections({
-              width: request.width,
-              height: request.height,
-              frame: request.frame,
-              settings: request.settings,
-            });
-            lastBackendRef.current = 'mock';
-            setPipelineLabel('Main thread JS fallback');
-            drawDetections(detections);
-            onDetectionUpdate(detections, 'mock');
+            lastBackendRef.current = 'unavailable';
+            setPipelineLabel('Detector unavailable');
+            clearCanvas();
+            onDetectionUpdate(EMPTY_DETECTIONS, 'unavailable');
             workerBusyRef.current = false;
           }
         }
@@ -322,7 +328,7 @@ export function CameraView({
 
     workerBusyRef.current = false;
     clearCanvas();
-    onDetectionUpdate([], lastBackendRef.current);
+    onDetectionUpdate(EMPTY_DETECTIONS, lastBackendRef.current);
   };
 
   const resizeCanvas = () => {

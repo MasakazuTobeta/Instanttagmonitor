@@ -4,6 +4,7 @@ import {
   DetectionSettings,
   DetectorBackend,
   PERFORMANCE_PROFILES,
+  REALTIME_DETECTOR_FAMILY,
 } from '../types/detection';
 
 interface DetectionInfoProps {
@@ -61,7 +62,7 @@ export function DetectionInfo({
             {performanceProfile.label}
           </div>
           <div className="rounded-full bg-white/[0.08] px-3 py-1.5">
-            {detectorBackend === 'wasm' ? 'WASM active' : 'Mock fallback'}
+            {detectorBackend === 'wasm' ? `WASM ${REALTIME_DETECTOR_FAMILY}` : 'Detector unavailable'}
           </div>
           <div className="rounded-full bg-emerald-500/12 px-3 py-1.5 text-emerald-200">
             {detections.length} hit{detections.length === 1 ? '' : 's'}
@@ -82,6 +83,12 @@ export function DetectionInfo({
               {currentDetection.tagType ?? 'Unknown'} / {currentDetection.family ?? 'auto'}
             </p>
           </div>
+        )}
+
+        {!currentDetection && detectorBackend !== 'wasm' && (
+          <p className="mt-3 text-xs leading-5 text-white/[0.58]">
+            実検出は現在 <span className="font-mono">{REALTIME_DETECTOR_FAMILY}</span> のみ対応です。未対応の設定では結果を返しません。
+          </p>
         )}
       </div>
     </div>

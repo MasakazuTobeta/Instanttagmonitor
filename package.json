@@ -7,7 +7,8 @@
     "build": "npm run build:wasm && vite build",
     "build:wasm": "node scripts/build-wasm.mjs",
     "dev": "npm run build:wasm && vite",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify:detector": "node scripts/verify-apriltag-runtime.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

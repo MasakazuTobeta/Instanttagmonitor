@@ -13,7 +13,7 @@ import {
 export default function App() {
   const [isDetecting, setIsDetecting] = useState(false);
   const [detections, setDetections] = useState<DetectionResult[]>([]);
-  const [detectorBackend, setDetectorBackend] = useState<DetectorBackend>('mock');
+  const [detectorBackend, setDetectorBackend] = useState<DetectorBackend>('unavailable');
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>('requesting');
   const [cameraMessage, setCameraMessage] = useState<string | undefined>();
   const [settings, setSettings] = useState<DetectionSettings>({

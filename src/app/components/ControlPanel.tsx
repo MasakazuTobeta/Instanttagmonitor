@@ -12,6 +12,7 @@ import {
   DetectionSettings,
   DetectorBackend,
   PERFORMANCE_PROFILES,
+  REALTIME_DETECTOR_FAMILY,
 } from '../types/detection';
 
 interface ControlPanelProps {
@@ -90,10 +91,10 @@ export function ControlPanel({
             <p className="mt-1 text-lg font-semibold leading-none">{detections.length}</p>
             <p
               className={`mt-1 text-[11px] ${
-                detectorBackend === 'wasm' ? 'text-emerald-300' : 'text-amber-200'
+                detectorBackend === 'wasm' ? 'text-emerald-300' : 'text-white/55'
               }`}
             >
-              {detectorBackend === 'wasm' ? 'WASM' : 'Mock'}
+              {detectorBackend === 'wasm' ? 'WASM' : 'Off'}
             </p>
           </div>
         </div>
@@ -132,7 +133,7 @@ export function ControlPanel({
                   <div className="rounded-2xl bg-white/[0.06] p-3">
                     <p className="text-[10px] uppercase tracking-[0.2em] text-white/[0.4]">Backend</p>
                     <p className="mt-2 font-medium">
-                      {detectorBackend === 'wasm' ? 'WASM detector' : 'JS mock fallback'}
+                      {detectorBackend === 'wasm' ? `AprilTag ${REALTIME_DETECTOR_FAMILY}` : 'Detector unavailable'}
                     </p>
                   </div>
                   <div className="rounded-2xl bg-white/[0.06] p-3">
@@ -187,7 +188,7 @@ export function ControlPanel({
                     </div>
                   ) : (
                     <p className="mt-3 text-sm leading-6 text-white/[0.55]">
-                      いまは結果なしです。タグを正面から映して、緑の枠が出るまで少し待ってください。
+                      いまは結果なしです。<span className="font-mono">{REALTIME_DETECTOR_FAMILY}</span> を正面から映して、緑の枠が出るまで少し待ってください。
                     </p>
                   )}
                 </div>
@@ -196,7 +197,9 @@ export function ControlPanel({
                   <h4 className="font-semibold text-white">使い方</h4>
                   <p className="mt-3">「検出開始」を押すとスキャンを開始します。</p>
                   <p className="mt-2">設定からパフォーマンスプロファイルとタグ種類を切り替えられます。</p>
-                  <p className="mt-2">現在は簡易 WASM 検出器のデモ段階で、実際の AprilTag デコーダではありません。</p>
+                  <p className="mt-2">
+                    現在の実検出は AprilTag <span className="font-mono">{REALTIME_DETECTOR_FAMILY}</span> のみ対応です。ArUco や他ファミリーは次段階で追加します。
+                  </p>
                 </div>
               </div>
             </div>

@@ -2,7 +2,9 @@ export type TagType = 'AprilTag' | 'AprilTag2' | 'AprilTag3' | 'ArUco';
 export type CameraStatus = 'requesting' | 'ready' | 'error' | 'unsupported';
 export type DetectionCorner = [number, number];
 export type PerformanceProfile = 'battery' | 'balanced' | 'precision';
-export type DetectorBackend = 'wasm' | 'mock';
+export type DetectorBackend = 'wasm' | 'unavailable';
+
+export const REALTIME_DETECTOR_FAMILY = 'tag36h11';
 
 export interface DetectionResult {
   id: number;

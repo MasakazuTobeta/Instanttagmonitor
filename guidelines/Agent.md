@@ -24,12 +24,12 @@
 - HTTPS必須（secure context）
 
 ### 検出アーキテクチャ
-- **現状**: 簡易 WASM 検出器によるデモ動作
-  - Web Worker 上で AssemblyScript 製の WASM 検出器を実行
-  - WASM 初期化や Worker 利用に失敗した場合は JS モックへフォールバック
+- **現状**: 実 WASM 検出器によるブラウザ検出
+  - Web Worker 上で AprilTag WASM 検出器を実行
+  - 現在の実検出対象は `tag36h11`
   - パフォーマンスプロファイルに応じて解像度と検出間隔を切り替え可能
 - **次段階**:
-  - 検出コア: AprilTag C 実装を Emscripten で WASM 化
+  - 検出コア: 他ファミリー対応を含む AprilTag C 実装の拡張
   - UI/カメラ制御: JavaScript
   - 非同期処理: Web Worker + OffscreenCanvas
   - フレームレート最適化: 2-3フレームに1回検出
@@ -115,25 +115,31 @@
 /src/app/
 ├── App.tsx                    # メインアプリケーション
 ├── lib/
-│   ├── mockDetection.ts      # JSフォールバック用のモック検出ロジック
-│   └── wasmDetector.ts       # WASM検出器のロードと結果変換
+│   ├── mockDetection.ts      # 旧モック検出ロジック（現在はruntime未使用）
+│   └── wasmDetector.ts       # 旧AssemblyScript検出器ラッパー
 ├── types/
 │   └── detection.ts          # 型定義
 ├── workers/
-│   └── detectorWorker.ts     # Worker上のWASM検出 + JSフォールバック
+│   └── detectorWorker.js     # Worker上の実 AprilTag WASM 検出
 ├── wasm/
-│   └── contrastDetector.wasm # AssemblyScript から生成したWASMバイナリ
+│   └── contrastDetector.wasm # 旧AssemblyScriptプロトタイプ
 └── components/
     ├── CameraView.tsx        # カメラ映像取得・Canvas描画
     ├── DetectionInfo.tsx     # 検出結果表示パネル
     ├── SettingsPanel.tsx     # タグ設定パネル
     └── ControlPanel.tsx      # 制御UI
 
+/public/vendor/apriltag/
+├── apriltag_wasm.js          # 実運用の WASM ランタイム
+├── apriltag_wasm.wasm        # 実運用の検出器バイナリ
+└── LICENSE                   # 同梱ライセンス
+
 /src/wasm/
-└── contrastDetector.ts       # AssemblyScript 製の簡易検出器
+└── contrastDetector.ts       # 旧AssemblyScript 製の簡易検出器
 
 /scripts/
-└── build-wasm.mjs            # WASMバイナリ生成スクリプト
+├── build-wasm.mjs            # 旧AssemblyScript WASMバイナリ生成スクリプト
+└── verify-apriltag-runtime.mjs # 公式サンプル画像で実検出を検証
 ```
 
 ### データフロー
@@ -163,8 +169,7 @@ interface DetectionSettings {
 ## 将来の拡張予定
 
 ### WASM統合
-- AprilTag C実装をEmscriptenでWASM化
-- 現在の簡易コントラスト検出器から本物のタグデコーダへ移行
+- tag36h11 以外の AprilTag ファミリー対応
 - OffscreenCanvas / Worker 内前処理への移行
 - パフォーマンス最適化
 
@@ -186,10 +191,11 @@ interface DetectionSettings {
 - ✅ カメラアクセスとプレビュー表示は完全動作
 - ✅ UI/UX実装完了
 - ✅ Worker ベースの WASM 検出パイプライン実装済み
-- ✅ WASM 初期化失敗時の JS フォールバック実装済み
+- ✅ `tag36h11` の実 AprilTag 検出を実装済み
+- ✅ 公式サンプル画像によるローカル検証スクリプトを追加
 - ✅ GitHub Pages workflow / deploy 設定完了
 - ✅ パフォーマンスプロファイルによる基本最適化を実装済み
-- ⚠️ WASM 検出器は簡易コントラスト検出であり、実際の AprilTag デコードではない
+- ⚠️ 他の AprilTag ファミリーと ArUco はまだ実検出未対応
 
 ### ブラウザ要件
 - HTTPS必須（またはlocalhost）
@@ -200,6 +206,7 @@ interface DetectionSettings {
 - スマホ性能に依存
 - 基本的な解像度・検出間隔の切り替えは実装済み
 - フレームのグレースケール化はまだメインスレッド側で実施
+- 実検出は `tag36h11` のみで、対応ファミリー拡張は未着手
 - 実用化には実機ベースの追加チューニングが必要
 - Worker分離による最適化が推奨
 
@@ -242,13 +249,13 @@ interface DetectionSettings {
 - ✅ 自動判定モード
 - ✅ 検出結果のオーバーレイ表示
 - ✅ Web Workerベースの検出パイプライン整理
-- ✅ AssemblyScript 製の簡易 WASM 検出器統合
-- ✅ WASM / JS フォールバック切り替え表示
+- ✅ 実 AprilTag WASM 検出器の統合
+- ✅ `tag36h11` 実検出のローカル検証
 - ✅ GitHub Pages デプロイ設定と本番デプロイ確認
 - ✅ パフォーマンスプロファイルによる基本最適化
 
 ### 次のステップ
-- [ ] AprilTag C / Emscripten ベースの本番検出器へ置き換え
+- [ ] 他の AprilTag ファミリー対応
 - [ ] Worker 内へ前処理を寄せてメインスレッド負荷を削減
 - [ ] 実機テスト・調整
 - [ ] 実機ベースの追加パフォーマンスチューニング
