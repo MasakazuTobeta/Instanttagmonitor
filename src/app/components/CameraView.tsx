@@ -37,6 +37,7 @@ export function CameraView({
   const frameRef = useRef(0);
   const isDetectingRef = useRef(isDetecting);
   const settingsRef = useRef(settings);
+  const detectionHistoryRef = useRef<Map<string, { count: number; detection: DetectionResult }>>(new Map());
   const lastProfileRef = useRef(settings.performanceProfile);
   const lastBackendRef = useRef<DetectorBackend>('unavailable');
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>('requesting');
@@ -106,6 +107,33 @@ export function CameraView({
     onCameraStateChange(status, message);
   };
 
+  const clearDetectionHistory = () => {
+    detectionHistoryRef.current = new Map();
+  };
+
+  const filterStableDetections = (detections: DetectionResult[]) => {
+    const nextHistory = new Map<string, { count: number; detection: DetectionResult }>();
+    const confirmedDetections: DetectionResult[] = [];
+
+    detections.forEach(detection => {
+      const detectionKey = `${detection.family ?? 'unknown'}:${detection.id}`;
+      const previous = detectionHistoryRef.current.get(detectionKey);
+      const count = previous ? previous.count + 1 : 1;
+
+      nextHistory.set(detectionKey, {
+        count,
+        detection,
+      });
+
+      if (count >= 2) {
+        confirmedDetections.push(detection);
+      }
+    });
+
+    detectionHistoryRef.current = nextHistory;
+    return confirmedDetections;
+  };
+
   const setupWorker = () => {
     if (typeof Worker === 'undefined') {
       lastBackendRef.current = 'unavailable';
@@ -129,14 +157,16 @@ export function CameraView({
           return;
         }
 
-        drawDetections(event.data.detections);
-        onDetectionUpdate(event.data.detections, event.data.backend);
+        const stableDetections = filterStableDetections(event.data.detections);
+        drawDetections(stableDetections);
+        onDetectionUpdate(stableDetections, event.data.backend);
       };
 
       worker.onerror = workerError => {
         console.warn('Detector worker failed.', workerError);
         workerBusyRef.current = false;
         lastBackendRef.current = 'unavailable';
+        clearDetectionHistory();
         setPipelineLabel('Detector unavailable');
         workerRef.current?.terminate();
         workerRef.current = null;
@@ -147,6 +177,7 @@ export function CameraView({
     } catch (workerError) {
       console.warn('Detector worker could not be initialized.', workerError);
       lastBackendRef.current = 'unavailable';
+      clearDetectionHistory();
       setPipelineLabel('Detector unavailable');
       workerRef.current = null;
     }
@@ -170,6 +201,7 @@ export function CameraView({
   const startCamera = async () => {
     stopDetection();
     stopCamera();
+    clearDetectionHistory();
     updateCameraState('requesting');
 
     if (!window.isSecureContext) {
@@ -277,6 +309,7 @@ export function CameraView({
       if (!workerBusyRef.current && frameRef.current % performanceConfig.frameSkip === 0) {
         if (!isRealtimeDetectionSupported(settings)) {
           lastBackendRef.current = 'unavailable';
+          clearDetectionHistory();
           setPipelineLabel('ArUco detector unavailable');
           clearCanvas();
           onDetectionUpdate(EMPTY_DETECTIONS, 'unavailable');
@@ -288,6 +321,7 @@ export function CameraView({
 
         if (!grayscale) {
           lastBackendRef.current = 'unavailable';
+          clearDetectionHistory();
           setPipelineLabel('Frame capture unavailable');
           clearCanvas();
           onDetectionUpdate(EMPTY_DETECTIONS, 'unavailable');
@@ -306,6 +340,7 @@ export function CameraView({
             workerRef.current.postMessage(request, [request.grayscale]);
           } else {
             lastBackendRef.current = 'unavailable';
+            clearDetectionHistory();
             setPipelineLabel('Detector unavailable');
             clearCanvas();
             onDetectionUpdate(EMPTY_DETECTIONS, 'unavailable');
@@ -327,6 +362,7 @@ export function CameraView({
     }
 
     workerBusyRef.current = false;
+    clearDetectionHistory();
     clearCanvas();
     onDetectionUpdate(EMPTY_DETECTIONS, lastBackendRef.current);
   };
