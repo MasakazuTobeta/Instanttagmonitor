@@ -7,6 +7,7 @@
     "build": "npm run build:wasm && vite build",
     "build:wasm": "node scripts/build-wasm.mjs",
     "dev": "npm run build:wasm && vite",
+    "generate:icons": "node scripts/generate-pwa-icons.mjs",
     "preview": "vite preview",
     "verify:detector": "node scripts/verify-apriltag-runtime.mjs"
   },

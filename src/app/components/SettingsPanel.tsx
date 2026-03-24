@@ -1,5 +1,6 @@
-import { Settings, X } from 'lucide-react';
+import { CheckCircle2, Download, PlusSquare, Settings, Share2, X } from 'lucide-react';
 import { useState } from 'react';
+import { InstallPromptState } from '../lib/useInstallPrompt';
 import {
   DetectionSettings,
   PERFORMANCE_PROFILES,
@@ -12,10 +13,12 @@ import {
 interface SettingsPanelProps {
   settings: DetectionSettings;
   onSettingsChange: (settings: DetectionSettings) => void;
+  installState: InstallPromptState;
 }
 
-export function SettingsPanel({ settings, onSettingsChange }: SettingsPanelProps) {
+export function SettingsPanel({ settings, onSettingsChange, installState }: SettingsPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
 
   const handleTagTypeChange = (tagType: TagType | 'auto') => {
     onSettingsChange({
@@ -43,6 +46,35 @@ export function SettingsPanel({ settings, onSettingsChange }: SettingsPanelProps
     settings.tagType === 'auto'
       ? []
       : TAG_FAMILIES[settings.tagType as TagType];
+
+  const installButtonLabel = installState.isInstalled
+    ? '追加済み'
+    : installState.canPromptInstall
+      ? 'この端末にインストール'
+      : installState.isIosLike
+        ? 'ホーム画面に追加'
+        : 'インストール方法を見る';
+
+  const installDescription = installState.isInstalled
+    ? 'この端末ではすでにアプリとして利用できます。'
+    : installState.canPromptInstall
+      ? '対応ブラウザでは、ここからそのままアプリとして追加できます。'
+      : installState.isIosLike
+        ? 'iPhone / iPad では共有メニューからホーム画面に追加します。'
+        : 'このブラウザでは、ブラウザメニューからインストール操作を行います。';
+
+  const handleInstallAction = async () => {
+    if (installState.isInstalled) {
+      return;
+    }
+
+    if (installState.canPromptInstall) {
+      await installState.promptInstall();
+      return;
+    }
+
+    setShowInstallGuide(prev => !prev);
+  };
 
   return (
     <>
@@ -77,6 +109,70 @@ export function SettingsPanel({ settings, onSettingsChange }: SettingsPanelProps
             <div className="p-4 space-y-6 overflow-y-auto max-h-[calc(80vh-80px)]">
               <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">
                 現在の実検出は Worker 上の AprilTag WASM を使っています。いま実際に動くファミリーは <span className="font-mono">{REALTIME_DETECTOR_FAMILY}</span> のみで、ArUco と他ファミリーは未対応です。
+              </div>
+
+              <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-white">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-bold">アプリとして追加</h3>
+                    <p className="mt-1 text-xs leading-5 text-gray-300">{installDescription}</p>
+                  </div>
+                  <div className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+                    installState.isInstalled
+                      ? 'bg-emerald-500/15 text-emerald-200'
+                      : installState.canPromptInstall
+                        ? 'bg-sky-500/15 text-sky-200'
+                        : 'bg-white/8 text-gray-300'
+                  }`}>
+                    {installState.isInstalled
+                      ? 'Installed'
+                      : installState.canPromptInstall
+                        ? 'Ready'
+                        : 'Manual'}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleInstallAction}
+                  disabled={installState.isInstalled}
+                  className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                    installState.isInstalled
+                      ? 'cursor-default bg-emerald-500/15 text-emerald-200'
+                      : 'bg-white text-gray-950 hover:bg-gray-100'
+                  }`}
+                >
+                  {installState.isInstalled ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : installState.canPromptInstall ? (
+                    <Download className="h-4 w-4" />
+                  ) : (
+                    <PlusSquare className="h-4 w-4" />
+                  )}
+                  {installButtonLabel}
+                </button>
+
+                {!installState.isInstalled && showInstallGuide && (
+                  <div className="rounded-xl border border-white/8 bg-black/20 p-4 text-sm text-gray-200">
+                    <div className="flex items-center gap-2 text-white">
+                      <Share2 className="h-4 w-4" />
+                      <p className="font-semibold">追加手順</p>
+                    </div>
+                    {installState.isIosLike ? (
+                      <div className="mt-3 space-y-2 text-xs leading-6 text-gray-300">
+                        <p>1. このページのブラウザ共有メニューを開く</p>
+                        <p>2. 「ホーム画面に追加」を選ぶ</p>
+                        <p>3. 名前を確認して「追加」を押す</p>
+                      </div>
+                    ) : (
+                      <div className="mt-3 space-y-2 text-xs leading-6 text-gray-300">
+                        <p>1. ブラウザのメニューを開く</p>
+                        <p>2. 「Install app」または「ホーム画面に追加」を選ぶ</p>
+                        <p>3. 表示された確認ダイアログで追加する</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

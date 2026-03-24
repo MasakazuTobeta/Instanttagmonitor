@@ -1,0 +1,26 @@
+{
+  "id": "./",
+  "name": "タグ検出アプリ",
+  "short_name": "タグ検出",
+  "description": "スマートフォンのカメラから AprilTag を検出するブラウザアプリ",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#08110d",
+  "theme_color": "#08110d",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

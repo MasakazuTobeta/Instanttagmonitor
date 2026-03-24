@@ -2,6 +2,7 @@
 
 Figmaの初期デザインをベースにした、スマホ向けのリアルタイムタグ検出デモアプリです。
 現状は Web Worker 上で AprilTag の実 WASM 検出器を動かし、カメラ映像から実際に `tag36h11` を検出できる構成です。UI、オーバーレイ、設定まわりはその検出器に接続済みで、他ファミリーや ArUco は次段階の対応対象です。
+設定メニューからアプリ追加導線も利用でき、対応ブラウザではインストールプロンプト、iPhone / iPad では「ホーム画面に追加」の手順案内を出せます。
 
 元のデザイン素材:
 https://www.figma.com/design/xSEUrrSIayay4fRUtMSkyg/%E3%82%BF%E3%82%B0%E6%A4%9C%E5%87%BA%E3%82%A2%E3%83%97%E3%83%AA
@@ -37,3 +38,4 @@ npm run verify:detector
 - カメラAPI（`getUserMedia`）は `https` もしくは `localhost` でのみ利用できます。
 - 現在の実検出は `tag36h11` のみ対応です。
 - ArUco と他の AprilTag ファミリーは UI 上で選べますが、まだ実検出には未対応です。
+- Android / Chromium 系ではアプリ内ボタンからインストールできますが、iOS / iPadOS はブラウザ共有メニューからの追加です。

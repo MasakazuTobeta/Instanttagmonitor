@@ -3,5 +3,15 @@
   import App from "./app/App.tsx";
   import "./styles/index.css";
 
+  if (import.meta.env.PROD && "serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker
+        .register(`${import.meta.env.BASE_URL}sw.js`)
+        .catch((error) => {
+          console.warn("Service worker registration failed.", error);
+        });
+    });
+  }
+
   createRoot(document.getElementById("root")!).render(<App />);
   

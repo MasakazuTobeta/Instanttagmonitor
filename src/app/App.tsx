@@ -3,6 +3,7 @@ import { CameraView } from './components/CameraView';
 import { DetectionInfo } from './components/DetectionInfo';
 import { ControlPanel } from './components/ControlPanel';
 import { SettingsPanel } from './components/SettingsPanel';
+import { useInstallPrompt } from './lib/useInstallPrompt';
 import {
   CameraStatus,
   DetectionResult,
@@ -11,6 +12,7 @@ import {
 } from './types/detection';
 
 export default function App() {
+  const installPrompt = useInstallPrompt();
   const [isDetecting, setIsDetecting] = useState(false);
   const [detections, setDetections] = useState<DetectionResult[]>([]);
   const [detectorBackend, setDetectorBackend] = useState<DetectorBackend>('unavailable');
@@ -68,6 +70,7 @@ export default function App() {
         <SettingsPanel
           settings={settings}
           onSettingsChange={handleSettingsChange}
+          installState={installPrompt}
         />
         <ControlPanel
           isDetecting={isDetecting}

@@ -182,8 +182,8 @@ interface DetectionSettings {
 
 ### PWA対応
 - Service Worker導入
-- オフライン動作
-- インストール可能なアプリ化
+- オフライン動作の基盤整備
+- 設定メニューからのインストール導線追加
 
 ## 既知の制限事項
 
@@ -193,6 +193,7 @@ interface DetectionSettings {
 - ✅ Worker ベースの WASM 検出パイプライン実装済み
 - ✅ `tag36h11` の実 AprilTag 検出を実装済み
 - ✅ 公式サンプル画像によるローカル検証スクリプトを追加
+- ✅ PWA manifest / Service Worker / ホーム画面追加導線を実装済み
 - ✅ GitHub Pages workflow / deploy 設定完了
 - ✅ パフォーマンスプロファイルによる基本最適化を実装済み
 - ⚠️ 他の AprilTag ファミリーと ArUco はまだ実検出未対応
@@ -251,6 +252,7 @@ interface DetectionSettings {
 - ✅ Web Workerベースの検出パイプライン整理
 - ✅ 実 AprilTag WASM 検出器の統合
 - ✅ `tag36h11` 実検出のローカル検証
+- ✅ PWA install 導線とホーム画面追加対応
 - ✅ GitHub Pages デプロイ設定と本番デプロイ確認
 - ✅ パフォーマンスプロファイルによる基本最適化
 
@@ -259,4 +261,5 @@ interface DetectionSettings {
 - [ ] Worker 内へ前処理を寄せてメインスレッド負荷を削減
 - [ ] 実機テスト・調整
 - [ ] 実機ベースの追加パフォーマンスチューニング
+- [ ] PWA のキャッシュ戦略と更新導線の改善
 - [ ] Node 24系ランナー移行を見据えた Actions 更新
