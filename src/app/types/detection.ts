@@ -2,6 +2,7 @@ export type TagType = 'AprilTag' | 'AprilTag2' | 'AprilTag3' | 'ArUco';
 export type CameraStatus = 'requesting' | 'ready' | 'error' | 'unsupported';
 export type DetectionCorner = [number, number];
 export type PerformanceProfile = 'battery' | 'balanced' | 'precision';
+export type DetectorBackend = 'wasm' | 'mock';
 
 export interface DetectionResult {
   id: number;
@@ -89,10 +90,12 @@ export interface DetectionJob {
 
 export interface DetectionWorkerRequest extends DetectionJob {
   type: 'detect';
+  grayscale: ArrayBuffer;
 }
 
 export interface DetectionWorkerResponse {
   type: 'result';
   frame: number;
   detections: DetectionResult[];
+  backend: DetectorBackend;
 }

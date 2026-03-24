@@ -6,13 +6,14 @@ import {
   DetectionSettings,
   DetectionWorkerRequest,
   DetectionWorkerResponse,
+  DetectorBackend,
   PERFORMANCE_PROFILES,
 } from '../types/detection';
 
 interface CameraViewProps {
   isDetecting: boolean;
   settings: DetectionSettings;
-  onDetectionUpdate: (results: DetectionResult[]) => void;
+  onDetectionUpdate: (results: DetectionResult[], backend: DetectorBackend) => void;
   onCameraStateChange: (status: CameraStatus, message?: string) => void;
 }
 
@@ -25,6 +26,7 @@ export function CameraView({
   const performanceConfig = PERFORMANCE_PROFILES[settings.performanceProfile];
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -32,14 +34,17 @@ export function CameraView({
   const frameRef = useRef(0);
   const isDetectingRef = useRef(isDetecting);
   const lastProfileRef = useRef(settings.performanceProfile);
+  const lastBackendRef = useRef<DetectorBackend>('mock');
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>('requesting');
   const [error, setError] = useState<string | null>(null);
+  const [pipelineLabel, setPipelineLabel] = useState('WASM detector standby');
 
   useEffect(() => {
     isDetectingRef.current = isDetecting;
   }, [isDetecting]);
 
   useEffect(() => {
+    captureCanvasRef.current = document.createElement('canvas');
     setupWorker();
     startCamera();
 
@@ -95,34 +100,45 @@ export function CameraView({
 
   const setupWorker = () => {
     if (typeof Worker === 'undefined') {
+      setPipelineLabel('Worker unavailable / JS fallback');
       return;
     }
 
     try {
-      const worker = new Worker(new URL('../workers/mockDetectorWorker.ts', import.meta.url), {
+      const worker = new Worker(new URL('../workers/detectorWorker.ts', import.meta.url), {
         type: 'module',
       });
 
       worker.onmessage = (event: MessageEvent<DetectionWorkerResponse>) => {
         workerBusyRef.current = false;
+        lastBackendRef.current = event.data.backend;
+        setPipelineLabel(
+          event.data.backend === 'wasm' ? 'Worker + WASM detector' : 'Worker + JS fallback',
+        );
 
         if (!isDetectingRef.current) {
           return;
         }
 
         drawDetections(event.data.detections);
-        onDetectionUpdate(event.data.detections);
+        onDetectionUpdate(event.data.detections, event.data.backend);
       };
 
-      worker.onerror = () => {
+      worker.onerror = workerError => {
+        console.warn('Detector worker failed, switching to mock fallback.', workerError);
         workerBusyRef.current = false;
+        lastBackendRef.current = 'mock';
+        setPipelineLabel('Worker unavailable / JS fallback');
         workerRef.current?.terminate();
         workerRef.current = null;
       };
 
       workerRef.current = worker;
+      setPipelineLabel('WASM detector loading');
     } catch (workerError) {
-      console.warn('Mock detector worker could not be initialized.', workerError);
+      console.warn('Detector worker could not be initialized.', workerError);
+      lastBackendRef.current = 'mock';
+      setPipelineLabel('Worker unavailable / JS fallback');
       workerRef.current = null;
     }
   };
@@ -198,6 +214,39 @@ export function CameraView({
     }
   };
 
+  const extractGrayscaleFrame = (video: HTMLVideoElement) => {
+    if (!captureCanvasRef.current) {
+      return null;
+    }
+
+    const captureCanvas = captureCanvasRef.current;
+    const width = video.videoWidth || performanceConfig.width;
+    const height = video.videoHeight || performanceConfig.height;
+
+    if (captureCanvas.width !== width || captureCanvas.height !== height) {
+      captureCanvas.width = width;
+      captureCanvas.height = height;
+    }
+
+    const ctx = captureCanvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) {
+      return null;
+    }
+
+    ctx.drawImage(video, 0, 0, width, height);
+    const imageData = ctx.getImageData(0, 0, width, height).data;
+    const grayscale = new Uint8Array(width * height);
+
+    for (let pixelIndex = 0, dataIndex = 0; pixelIndex < grayscale.length; pixelIndex += 1, dataIndex += 4) {
+      const red = imageData[dataIndex];
+      const green = imageData[dataIndex + 1];
+      const blue = imageData[dataIndex + 2];
+      grayscale[pixelIndex] = (red * 77 + green * 150 + blue * 29) >> 8;
+    }
+
+    return grayscale;
+  };
+
   const startDetection = () => {
     stopDetection();
     frameRef.current = 0;
@@ -217,23 +266,45 @@ export function CameraView({
       frameRef.current += 1;
 
       if (!workerBusyRef.current && frameRef.current % performanceConfig.frameSkip === 0) {
-        const request: DetectionWorkerRequest = {
-          type: 'detect',
-          width: video.videoWidth || 640,
-          height: video.videoHeight || 480,
-          frame: frameRef.current,
-          settings,
-        };
+        const grayscale = extractGrayscaleFrame(video);
 
-        workerBusyRef.current = true;
-
-        if (workerRef.current) {
-          workerRef.current.postMessage(request);
-        } else {
-          const detections = generateMockDetections(request);
+        if (!grayscale) {
+          const detections = generateMockDetections({
+            width: video.videoWidth || performanceConfig.width,
+            height: video.videoHeight || performanceConfig.height,
+            frame: frameRef.current,
+            settings,
+          });
+          lastBackendRef.current = 'mock';
+          setPipelineLabel('Canvas readback fallback');
           drawDetections(detections);
-          onDetectionUpdate(detections);
-          workerBusyRef.current = false;
+          onDetectionUpdate(detections, 'mock');
+        } else {
+          workerBusyRef.current = true;
+          const request: DetectionWorkerRequest = {
+            type: 'detect',
+            width: video.videoWidth || performanceConfig.width,
+            height: video.videoHeight || performanceConfig.height,
+            frame: frameRef.current,
+            settings,
+            grayscale: grayscale.buffer,
+          };
+
+          if (workerRef.current) {
+            workerRef.current.postMessage(request, [request.grayscale]);
+          } else {
+            const detections = generateMockDetections({
+              width: request.width,
+              height: request.height,
+              frame: request.frame,
+              settings: request.settings,
+            });
+            lastBackendRef.current = 'mock';
+            setPipelineLabel('Main thread JS fallback');
+            drawDetections(detections);
+            onDetectionUpdate(detections, 'mock');
+            workerBusyRef.current = false;
+          }
         }
       }
 
@@ -251,7 +322,7 @@ export function CameraView({
 
     workerBusyRef.current = false;
     clearCanvas();
-    onDetectionUpdate([]);
+    onDetectionUpdate([], lastBackendRef.current);
   };
 
   const resizeCanvas = () => {
@@ -260,8 +331,8 @@ export function CameraView({
     }
 
     const canvas = canvasRef.current;
-    const width = videoRef.current.videoWidth || 640;
-    const height = videoRef.current.videoHeight || 480;
+    const width = videoRef.current.videoWidth || performanceConfig.width;
+    const height = videoRef.current.videoHeight || performanceConfig.height;
 
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width;
@@ -349,7 +420,7 @@ export function CameraView({
         className="pointer-events-none absolute inset-0 h-full w-full object-cover"
       />
       <div className="pointer-events-none absolute bottom-36 left-4 z-10 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200 backdrop-blur">
-        {performanceConfig.label} / Worker-ready pipeline
+        {pipelineLabel}
       </div>
       {cameraStatus === 'requesting' && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">

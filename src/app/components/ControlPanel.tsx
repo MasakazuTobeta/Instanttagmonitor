@@ -57,7 +57,7 @@ export function ControlPanel({
                 <li>タグは緑色の枠と ID・タイプ表示でオーバーレイされます</li>
               </ul>
               <p className="mt-2 text-xs text-gray-400">
-                ※現在はデモモードです。Worker ベースの検出間隔と解像度切替で、軽量端末でも試しやすい構成にしています。
+                ※現在は簡易 WASM 検出器のデモ段階です。実際の AprilTag デコーダではありませんが、Worker 分離と JS フォールバック込みで本番実装に近い配線へ寄せています。
               </p>
             </div>
           </div>

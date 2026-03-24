@@ -75,7 +75,7 @@ export function SettingsPanel({ settings, onSettingsChange }: SettingsPanelProps
 
             <div className="p-4 space-y-6 overflow-y-auto max-h-[calc(80vh-80px)]">
               <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">
-                現在の検出パイプラインはデモモードです。ここで絞り込んだ設定が Worker ベースのモック検出結果に反映されます。
+                現在の検出パイプラインは簡易 WASM 検出器のデモ段階です。ここで絞り込んだ設定は Worker 上の WASM 検出器、または JS フォールバック結果に反映されます。
               </div>
 
               <div className="space-y-2">

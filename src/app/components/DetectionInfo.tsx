@@ -2,6 +2,7 @@ import {
   CameraStatus,
   DetectionResult,
   DetectionSettings,
+  DetectorBackend,
   PERFORMANCE_PROFILES,
 } from '../types/detection';
 
@@ -10,6 +11,7 @@ interface DetectionInfoProps {
   isDetecting: boolean;
   cameraStatus: CameraStatus;
   cameraMessage?: string;
+  detectorBackend: DetectorBackend;
   settings: DetectionSettings;
 }
 
@@ -25,6 +27,7 @@ export function DetectionInfo({
   isDetecting,
   cameraStatus,
   cameraMessage,
+  detectorBackend,
   settings,
 }: DetectionInfoProps) {
   const performanceProfile = PERFORMANCE_PROFILES[settings.performanceProfile];
@@ -39,7 +42,7 @@ export function DetectionInfo({
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold tracking-wide">AprilTag Monitor</h2>
-            <p className="text-xs text-gray-400">Mock detection pipeline / camera overlay demo</p>
+            <p className="text-xs text-gray-400">WASM-ready detector pipeline / camera overlay demo</p>
           </div>
           <div className="flex items-center gap-2">
             {isDetecting && (
@@ -54,7 +57,7 @@ export function DetectionInfo({
           </div>
         </div>
 
-        <div className="grid gap-2 text-xs text-gray-200 sm:grid-cols-3">
+        <div className="grid gap-2 text-xs text-gray-200 sm:grid-cols-4">
           <div className="rounded-xl bg-white/8 p-3">
             <p className="text-[11px] uppercase tracking-[0.18em] text-gray-400">Camera</p>
             <p className="mt-1 font-medium text-white">{cameraLabels[cameraStatus]}</p>
@@ -67,6 +70,13 @@ export function DetectionInfo({
             <p className="text-[11px] uppercase tracking-[0.18em] text-gray-400">Perf</p>
             <p className="mt-1 font-medium text-white">{performanceProfile.label}</p>
             <p className="mt-1 text-[11px] text-gray-400">{performanceProfile.description}</p>
+          </div>
+          <div className="rounded-xl bg-white/8 p-3">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-gray-400">Backend</p>
+            <p className="mt-1 font-medium text-white">{detectorBackend === 'wasm' ? 'WASM' : 'Mock JS'}</p>
+            <p className="mt-1 text-[11px] text-gray-400">
+              {detectorBackend === 'wasm' ? 'AssemblyScript contrast detector' : 'JS mock fallback detector'}
+            </p>
           </div>
         </div>
 

@@ -23,12 +23,13 @@
 - 推奨解像度: 640x480 または 720p
 - HTTPS必須（secure context）
 
-### 検出アーキテクチャ（将来実装）
-- **現状**: モックデータによるデモ動作
-  - Web Worker 経由のモック検出パイプラインを実装済み
+### 検出アーキテクチャ
+- **現状**: 簡易 WASM 検出器によるデモ動作
+  - Web Worker 上で AssemblyScript 製の WASM 検出器を実行
+  - WASM 初期化や Worker 利用に失敗した場合は JS モックへフォールバック
   - パフォーマンスプロファイルに応じて解像度と検出間隔を切り替え可能
-- **本番想定**:
-  - 検出コア: WebAssembly (WASM) による高速処理
+- **次段階**:
+  - 検出コア: AprilTag C 実装を Emscripten で WASM 化
   - UI/カメラ制御: JavaScript
   - 非同期処理: Web Worker + OffscreenCanvas
   - フレームレート最適化: 2-3フレームに1回検出
@@ -114,16 +115,25 @@
 /src/app/
 ├── App.tsx                    # メインアプリケーション
 ├── lib/
-│   └── mockDetection.ts      # モック検出ロジック
+│   ├── mockDetection.ts      # JSフォールバック用のモック検出ロジック
+│   └── wasmDetector.ts       # WASM検出器のロードと結果変換
 ├── types/
 │   └── detection.ts          # 型定義
 ├── workers/
-│   └── mockDetectorWorker.ts # Workerベースのモック検出
+│   └── detectorWorker.ts     # Worker上のWASM検出 + JSフォールバック
+├── wasm/
+│   └── contrastDetector.wasm # AssemblyScript から生成したWASMバイナリ
 └── components/
     ├── CameraView.tsx        # カメラ映像取得・Canvas描画
     ├── DetectionInfo.tsx     # 検出結果表示パネル
     ├── SettingsPanel.tsx     # タグ設定パネル
     └── ControlPanel.tsx      # 制御UI
+
+/src/wasm/
+└── contrastDetector.ts       # AssemblyScript 製の簡易検出器
+
+/scripts/
+└── build-wasm.mjs            # WASMバイナリ生成スクリプト
 ```
 
 ### データフロー
@@ -154,7 +164,8 @@ interface DetectionSettings {
 
 ### WASM統合
 - AprilTag C実装をEmscriptenでWASM化
-- 実際の検出処理の実装
+- 現在の簡易コントラスト検出器から本物のタグデコーダへ移行
+- OffscreenCanvas / Worker 内前処理への移行
 - パフォーマンス最適化
 
 ### 高度な機能
@@ -174,10 +185,11 @@ interface DetectionSettings {
 ### 現在の状態
 - ✅ カメラアクセスとプレビュー表示は完全動作
 - ✅ UI/UX実装完了
-- ✅ Workerベースのモック検出パイプライン実装済み
+- ✅ Worker ベースの WASM 検出パイプライン実装済み
+- ✅ WASM 初期化失敗時の JS フォールバック実装済み
 - ✅ GitHub Pages workflow / deploy 設定完了
 - ✅ パフォーマンスプロファイルによる基本最適化を実装済み
-- ⚠️ 検出処理はモックデータ（WASM統合待ち）
+- ⚠️ WASM 検出器は簡易コントラスト検出であり、実際の AprilTag デコードではない
 
 ### ブラウザ要件
 - HTTPS必須（またはlocalhost）
@@ -187,6 +199,7 @@ interface DetectionSettings {
 ### パフォーマンス考慮事項
 - スマホ性能に依存
 - 基本的な解像度・検出間隔の切り替えは実装済み
+- フレームのグレースケール化はまだメインスレッド側で実施
 - 実用化には実機ベースの追加チューニングが必要
 - Worker分離による最適化が推奨
 
@@ -228,13 +241,15 @@ interface DetectionSettings {
 - ✅ タグタイプ・ファミリー選択UI
 - ✅ 自動判定モード
 - ✅ 検出結果のオーバーレイ表示
-- ✅ モックデータでのデモ動作
 - ✅ Web Workerベースの検出パイプライン整理
+- ✅ AssemblyScript 製の簡易 WASM 検出器統合
+- ✅ WASM / JS フォールバック切り替え表示
 - ✅ GitHub Pages デプロイ設定と本番デプロイ確認
 - ✅ パフォーマンスプロファイルによる基本最適化
 
 ### 次のステップ
-- [ ] WASM検出器の統合
+- [ ] AprilTag C / Emscripten ベースの本番検出器へ置き換え
+- [ ] Worker 内へ前処理を寄せてメインスレッド負荷を削減
 - [ ] 実機テスト・調整
 - [ ] 実機ベースの追加パフォーマンスチューニング
 - [ ] Node 24系ランナー移行を見据えた Actions 更新
