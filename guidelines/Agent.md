@@ -26,10 +26,10 @@
 ### 検出アーキテクチャ
 - **現状**: 実 WASM 検出器によるブラウザ検出
   - Web Worker 上で AprilTag WASM 検出器を実行
-  - 現在の実検出対象は `tag36h11`
+  - AprilTag の複数 family を実検出可能
   - パフォーマンスプロファイルに応じて解像度と検出間隔を切り替え可能
 - **次段階**:
-  - 検出コア: 他ファミリー対応を含む AprilTag C 実装の拡張
+  - 検出コア: ArUco 対応と Worker 内前処理の強化
   - UI/カメラ制御: JavaScript
   - 非同期処理: Web Worker + OffscreenCanvas
   - フレームレート最適化: 2-3フレームに1回検出
@@ -139,6 +139,7 @@
 
 /scripts/
 ├── build-wasm.mjs            # 旧AssemblyScript WASMバイナリ生成スクリプト
+├── build-apriltag-runtime.mjs # official AprilTag C source から実 runtime を再生成
 └── verify-apriltag-runtime.mjs # 公式サンプル画像で実検出を検証
 ```
 
@@ -169,9 +170,9 @@ interface DetectionSettings {
 ## 将来の拡張予定
 
 ### WASM統合
-- tag36h11 以外の AprilTag ファミリー対応
 - OffscreenCanvas / Worker 内前処理への移行
 - パフォーマンス最適化
+- ArUco 対応
 
 ### 高度な機能
 - 姿勢推定（6DoF）の表示
@@ -191,12 +192,12 @@ interface DetectionSettings {
 - ✅ カメラアクセスとプレビュー表示は完全動作
 - ✅ UI/UX実装完了
 - ✅ Worker ベースの WASM 検出パイプライン実装済み
-- ✅ `tag36h11` の実 AprilTag 検出を実装済み
-- ✅ 公式サンプル画像によるローカル検証スクリプトを追加
+- ✅ AprilTag 複数 family の実検出を実装済み
+- ✅ 公式サンプル画像による multi-family ローカル検証スクリプトを追加
 - ✅ PWA manifest / Service Worker / ホーム画面追加導線を実装済み
 - ✅ GitHub Pages workflow / deploy 設定完了
 - ✅ パフォーマンスプロファイルによる基本最適化を実装済み
-- ⚠️ 他の AprilTag ファミリーと ArUco はまだ実検出未対応
+- ⚠️ ArUco はまだ実検出未対応
 
 ### ブラウザ要件
 - HTTPS必須（またはlocalhost）
@@ -207,7 +208,7 @@ interface DetectionSettings {
 - スマホ性能に依存
 - 基本的な解像度・検出間隔の切り替えは実装済み
 - フレームのグレースケール化はまだメインスレッド側で実施
-- 実検出は `tag36h11` のみで、対応ファミリー拡張は未着手
+- AprilTag family 拡張は完了、ArUco と Worker 内前処理は未着手
 - 実用化には実機ベースの追加チューニングが必要
 - Worker分離による最適化が推奨
 
@@ -251,13 +252,13 @@ interface DetectionSettings {
 - ✅ 検出結果のオーバーレイ表示
 - ✅ Web Workerベースの検出パイプライン整理
 - ✅ 実 AprilTag WASM 検出器の統合
-- ✅ `tag36h11` 実検出のローカル検証
+- ✅ AprilTag 複数 family 実検出のローカル検証
 - ✅ PWA install 導線とホーム画面追加対応
 - ✅ GitHub Pages デプロイ設定と本番デプロイ確認
 - ✅ パフォーマンスプロファイルによる基本最適化
 
 ### 次のステップ
-- [ ] 他の AprilTag ファミリー対応
+- [ ] ArUco 対応
 - [ ] Worker 内へ前処理を寄せてメインスレッド負荷を削減
 - [ ] 実機テスト・調整
 - [ ] 実機ベースの追加パフォーマンスチューニング

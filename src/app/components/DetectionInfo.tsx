@@ -3,8 +3,9 @@ import {
   DetectionResult,
   DetectionSettings,
   DetectorBackend,
+  getRealtimeDetectorFamilies,
+  getRealtimeDetectorLabel,
   PERFORMANCE_PROFILES,
-  REALTIME_DETECTOR_FAMILY,
 } from '../types/detection';
 
 interface DetectionInfoProps {
@@ -32,6 +33,7 @@ export function DetectionInfo({
   settings,
 }: DetectionInfoProps) {
   const performanceProfile = PERFORMANCE_PROFILES[settings.performanceProfile];
+  const realtimeFamilies = getRealtimeDetectorFamilies(settings);
   const currentDetection = detections[0];
   const stateLabel = isDetecting ? 'LIVE' : 'STANDBY';
 
@@ -62,7 +64,7 @@ export function DetectionInfo({
             {performanceProfile.label}
           </div>
           <div className="rounded-full bg-white/[0.08] px-3 py-1.5">
-            {detectorBackend === 'wasm' ? `WASM ${REALTIME_DETECTOR_FAMILY}` : 'Detector unavailable'}
+            {detectorBackend === 'wasm' ? `WASM ${getRealtimeDetectorLabel(settings)}` : 'Detector unavailable'}
           </div>
           <div className="rounded-full bg-emerald-500/12 px-3 py-1.5 text-emerald-200">
             {detections.length} hit{detections.length === 1 ? '' : 's'}
@@ -87,7 +89,9 @@ export function DetectionInfo({
 
         {!currentDetection && detectorBackend !== 'wasm' && (
           <p className="mt-3 text-xs leading-5 text-white/[0.58]">
-            実検出は現在 <span className="font-mono">{REALTIME_DETECTOR_FAMILY}</span> のみ対応です。未対応の設定では結果を返しません。
+            {realtimeFamilies.length === 0
+              ? 'ArUco はまだ実検出に未対応です。AprilTag ファミリーに切り替えるとブラウザ検出を利用できます。'
+              : 'WASM 検出器を利用できませんでした。ページを再読み込みして、もう一度スキャンを試してください。'}
           </p>
         )}
       </div>

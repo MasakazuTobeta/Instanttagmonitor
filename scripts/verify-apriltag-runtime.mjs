@@ -4,8 +4,60 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { inflateSync } from 'node:zlib';
 
-const TAG_IMAGE_URL =
-  'https://raw.githubusercontent.com/AprilRobotics/apriltag-imgs/master/tag36h11/tag36_11_00000.png';
+const FAMILY_MASKS = {
+  tag36h11: 1 << 0,
+  tag25h9: 1 << 1,
+  tag16h5: 1 << 2,
+  tagCircle21h7: 1 << 3,
+  tagCircle49h12: 1 << 4,
+  tagStandard41h12: 1 << 5,
+  tagStandard52h13: 1 << 6,
+};
+
+const ALL_FAMILY_MASK = Object.values(FAMILY_MASKS).reduce((mask, value) => mask | value, 0);
+
+const TEST_CASES = [
+  {
+    family: 'tag36h11',
+    mask: FAMILY_MASKS.tag36h11,
+    imageUrl: 'https://raw.githubusercontent.com/AprilRobotics/apriltag-imgs/master/tag36h11/tag36_11_00000.png',
+  },
+  {
+    family: 'tag25h9',
+    mask: FAMILY_MASKS.tag25h9,
+    imageUrl: 'https://raw.githubusercontent.com/AprilRobotics/apriltag-imgs/master/tag25h9/tag25_09_00000.png',
+  },
+  {
+    family: 'tag16h5',
+    mask: FAMILY_MASKS.tag16h5,
+    imageUrl: 'https://raw.githubusercontent.com/AprilRobotics/apriltag-imgs/master/tag16h5/tag16_05_00000.png',
+  },
+  {
+    family: 'tagCircle21h7',
+    mask: FAMILY_MASKS.tagCircle21h7,
+    imageUrl: 'https://raw.githubusercontent.com/AprilRobotics/apriltag-imgs/master/tagCircle21h7/tag21_07_00000.png',
+  },
+  {
+    family: 'tagCircle49h12',
+    mask: FAMILY_MASKS.tagCircle49h12,
+    imageUrl: 'https://raw.githubusercontent.com/AprilRobotics/apriltag-imgs/master/tagCircle49h12/tag49_12_00000.png',
+  },
+  {
+    family: 'tagStandard41h12',
+    mask: FAMILY_MASKS.tagStandard41h12,
+    imageUrl: 'https://raw.githubusercontent.com/AprilRobotics/apriltag-imgs/master/tagStandard41h12/tag41_12_00000.png',
+  },
+  {
+    family: 'tagStandard52h13',
+    mask: FAMILY_MASKS.tagStandard52h13,
+    imageUrl: 'https://raw.githubusercontent.com/AprilRobotics/apriltag-imgs/master/tagStandard52h13/tag52_13_00000.png',
+  },
+  {
+    family: 'tagStandard52h13',
+    mask: ALL_FAMILY_MASK,
+    imageUrl: 'https://raw.githubusercontent.com/AprilRobotics/apriltag-imgs/master/tagStandard52h13/tag52_13_00000.png',
+  },
+];
 
 function paethPredictor(a, b, c) {
   const predictor = a + b - c;
@@ -131,6 +183,14 @@ function scaleToGrayscale(decoded, scale, margin) {
   return { width, height, grayscale };
 }
 
+function parseDetections(Module, detectRaw) {
+  const resultPointer = detectRaw();
+  const jsonLength = Module.getValue(resultPointer, 'i32');
+  const jsonPointer = Module.getValue(resultPointer + 4, 'i32');
+  const jsonView = new Uint8Array(Module.HEAPU8.buffer, jsonPointer, jsonLength);
+  return jsonLength ? JSON.parse(new TextDecoder().decode(jsonView)) : [];
+}
+
 async function main() {
   const tempDir = mkdtempSync(path.join(tmpdir(), 'apriltag-runtime-'));
   const wasmModulePath = path.join(tempDir, 'apriltag_wasm.cjs');
@@ -162,38 +222,48 @@ async function main() {
       'number',
       ['number', 'number', 'number', 'number', 'number', 'number', 'number'],
     );
+    const setDetectorFamilies = Module.cwrap('atagjs_set_detector_families', 'number', ['number']);
     const setImageBuffer = Module.cwrap('atagjs_set_img_buffer', 'number', ['number', 'number', 'number']);
     const detectRaw = Module.cwrap('atagjs_detect', 'number', []);
 
     init();
     setDetectorOptions(1.0, 0.0, 1, 1, 8, 0, 0);
 
-    const response = await fetch(TAG_IMAGE_URL);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch verification tag image: ${response.status}`);
+    const results = [];
+
+    for (const testCase of TEST_CASES) {
+      const response = await fetch(testCase.imageUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch verification tag image: ${response.status}`);
+      }
+
+      setDetectorFamilies(testCase.mask);
+
+      const png = Buffer.from(await response.arrayBuffer());
+      const decoded = decodePng(png);
+      const scaled = scaleToGrayscale(decoded, 64, 96);
+      const imagePointer = setImageBuffer(scaled.width, scaled.height, scaled.width);
+      Module.HEAPU8.set(scaled.grayscale, imagePointer);
+
+      const detections = parseDetections(Module, detectRaw);
+      const matchedDetection = detections.find(detection => detection.family === testCase.family);
+
+      if (!matchedDetection) {
+        throw new Error(`No ${testCase.family} detection was returned.`);
+      }
+
+      if (matchedDetection.id !== 0) {
+        throw new Error(`Expected tag id 0 for ${testCase.family} but received ${matchedDetection.id}.`);
+      }
+
+      results.push({
+        family: testCase.family,
+        mask: testCase.mask,
+        id: matchedDetection.id,
+      });
     }
 
-    const png = Buffer.from(await response.arrayBuffer());
-    const decoded = decodePng(png);
-    const scaled = scaleToGrayscale(decoded, 48, 64);
-    const imagePointer = setImageBuffer(scaled.width, scaled.height, scaled.width);
-    Module.HEAPU8.set(scaled.grayscale, imagePointer);
-
-    const resultPointer = detectRaw();
-    const jsonLength = Module.getValue(resultPointer, 'i32');
-    const jsonPointer = Module.getValue(resultPointer + 4, 'i32');
-    const jsonView = new Uint8Array(Module.HEAPU8.buffer, jsonPointer, jsonLength);
-    const detections = jsonLength ? JSON.parse(new TextDecoder().decode(jsonView)) : [];
-
-    if (detections.length === 0) {
-      throw new Error('No detections were returned for the known tag image.');
-    }
-
-    if (detections[0].id !== 0) {
-      throw new Error(`Expected tag id 0 but received ${detections[0].id}.`);
-    }
-
-    console.log(JSON.stringify({ detections }, null, 2));
+    console.log(JSON.stringify({ results }, null, 2));
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }

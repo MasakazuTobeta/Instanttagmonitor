@@ -11,8 +11,9 @@ import {
   DetectionResult,
   DetectionSettings,
   DetectorBackend,
+  getRealtimeDetectorFamilies,
+  getRealtimeDetectorLabel,
   PERFORMANCE_PROFILES,
-  REALTIME_DETECTOR_FAMILY,
 } from '../types/detection';
 
 interface ControlPanelProps {
@@ -42,9 +43,10 @@ export function ControlPanel({
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const isReady = cameraStatus === 'ready';
   const performanceProfile = PERFORMANCE_PROFILES[settings.performanceProfile];
+  const realtimeFamilies = getRealtimeDetectorFamilies(settings);
   const selectionLabel =
     settings.tagType === 'auto'
-      ? '自動判定 / すべてのタグ'
+      ? '自動判定 / AprilTag families'
       : `${settings.tagType} / ${settings.family === 'auto' ? 'family auto' : settings.family}`;
 
   return (
@@ -133,7 +135,7 @@ export function ControlPanel({
                   <div className="rounded-2xl bg-white/[0.06] p-3">
                     <p className="text-[10px] uppercase tracking-[0.2em] text-white/[0.4]">Backend</p>
                     <p className="mt-2 font-medium">
-                      {detectorBackend === 'wasm' ? `AprilTag ${REALTIME_DETECTOR_FAMILY}` : 'Detector unavailable'}
+                      {detectorBackend === 'wasm' ? getRealtimeDetectorLabel(settings) : 'Detector unavailable'}
                     </p>
                   </div>
                   <div className="rounded-2xl bg-white/[0.06] p-3">
@@ -188,7 +190,9 @@ export function ControlPanel({
                     </div>
                   ) : (
                     <p className="mt-3 text-sm leading-6 text-white/[0.55]">
-                      いまは結果なしです。<span className="font-mono">{REALTIME_DETECTOR_FAMILY}</span> を正面から映して、緑の枠が出るまで少し待ってください。
+                      {realtimeFamilies.length === 1
+                        ? <>いまは結果なしです。<span className="font-mono">{realtimeFamilies[0]}</span> を正面から映して、緑の枠が出るまで少し待ってください。</>
+                        : 'いまは結果なしです。選択中の AprilTag を正面から映して、緑の枠が出るまで少し待ってください。'}
                     </p>
                   )}
                 </div>
@@ -198,7 +202,7 @@ export function ControlPanel({
                   <p className="mt-3">「検出開始」を押すとスキャンを開始します。</p>
                   <p className="mt-2">設定からパフォーマンスプロファイルとタグ種類を切り替えられます。</p>
                   <p className="mt-2">
-                    現在の実検出は AprilTag <span className="font-mono">{REALTIME_DETECTOR_FAMILY}</span> のみ対応です。ArUco や他ファミリーは次段階で追加します。
+                    AprilTag は複数 family を実検出できます。ArUco はまだ未対応なので、AprilTag 側を選んで利用してください。
                   </p>
                 </div>
               </div>

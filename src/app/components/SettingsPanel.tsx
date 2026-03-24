@@ -5,7 +5,7 @@ import {
   DetectionSettings,
   PERFORMANCE_PROFILES,
   PerformanceProfile,
-  REALTIME_DETECTOR_FAMILY,
+  REALTIME_DETECTOR_FAMILIES,
   TAG_FAMILIES,
   TagType,
 } from '../types/detection';
@@ -108,7 +108,14 @@ export function SettingsPanel({ settings, onSettingsChange, installState }: Sett
 
             <div className="p-4 space-y-6 overflow-y-auto max-h-[calc(80vh-80px)]">
               <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">
-                現在の実検出は Worker 上の AprilTag WASM を使っています。いま実際に動くファミリーは <span className="font-mono">{REALTIME_DETECTOR_FAMILY}</span> のみで、ArUco と他ファミリーは未対応です。
+                <p>
+                  現在の実検出は Worker 上の AprilTag WASM を使っています。AprilTag family は複数対応済みで、ArUco はまだ未対応です。
+                </p>
+                <p className="mt-2 text-xs leading-6 text-emerald-50/80">
+                  対応 family:
+                  {' '}
+                  <span className="font-mono">{REALTIME_DETECTOR_FAMILIES.join(', ')}</span>
+                </p>
               </div>
 
               <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-white">
@@ -191,7 +198,7 @@ export function SettingsPanel({ settings, onSettingsChange, installState }: Sett
                     />
                     <div>
                       <div className="text-white font-medium">自動判定</div>
-                      <div className="text-xs text-gray-400">すべてのタグを自動的に検出</div>
+                      <div className="text-xs text-gray-400">対応済みの AprilTag family を自動的に検出</div>
                     </div>
                   </label>
 

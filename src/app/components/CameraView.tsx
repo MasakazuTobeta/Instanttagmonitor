@@ -6,8 +6,9 @@ import {
   DetectionWorkerRequest,
   DetectionWorkerResponse,
   DetectorBackend,
+  getRealtimeDetectorLabel,
+  isRealtimeDetectionSupported,
   PERFORMANCE_PROFILES,
-  REALTIME_DETECTOR_FAMILY,
 } from '../types/detection';
 
 interface CameraViewProps {
@@ -18,14 +19,6 @@ interface CameraViewProps {
 }
 
 const EMPTY_DETECTIONS: DetectionResult[] = [];
-
-function supportsRealtimeDetection(settings: DetectionSettings) {
-  if (settings.tagType === 'ArUco') {
-    return false;
-  }
-
-  return settings.family === 'auto' || settings.family === REALTIME_DETECTOR_FAMILY;
-}
 
 export function CameraView({
   isDetecting,
@@ -43,6 +36,7 @@ export function CameraView({
   const workerBusyRef = useRef(false);
   const frameRef = useRef(0);
   const isDetectingRef = useRef(isDetecting);
+  const settingsRef = useRef(settings);
   const lastProfileRef = useRef(settings.performanceProfile);
   const lastBackendRef = useRef<DetectorBackend>('unavailable');
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>('requesting');
@@ -52,6 +46,10 @@ export function CameraView({
   useEffect(() => {
     isDetectingRef.current = isDetecting;
   }, [isDetecting]);
+
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   useEffect(() => {
     captureCanvasRef.current = document.createElement('canvas');
@@ -122,7 +120,9 @@ export function CameraView({
         workerBusyRef.current = false;
         lastBackendRef.current = event.data.backend;
         setPipelineLabel(
-          event.data.backend === 'wasm' ? 'AprilTag tag36h11 active' : 'Detector unavailable',
+          event.data.backend === 'wasm'
+            ? `${getRealtimeDetectorLabel(settingsRef.current)} active`
+            : 'Detector unavailable',
         );
 
         if (!isDetectingRef.current) {
@@ -275,9 +275,9 @@ export function CameraView({
       frameRef.current += 1;
 
       if (!workerBusyRef.current && frameRef.current % performanceConfig.frameSkip === 0) {
-        if (!supportsRealtimeDetection(settings)) {
+        if (!isRealtimeDetectionSupported(settings)) {
           lastBackendRef.current = 'unavailable';
-          setPipelineLabel(`Currently supported: ${REALTIME_DETECTOR_FAMILY}`);
+          setPipelineLabel('ArUco detector unavailable');
           clearCanvas();
           onDetectionUpdate(EMPTY_DETECTIONS, 'unavailable');
           animationFrameRef.current = requestAnimationFrame(detectFrame);

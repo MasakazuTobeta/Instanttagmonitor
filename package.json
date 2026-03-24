@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "npm run build:wasm && vite build",
+    "build:apriltag": "node scripts/build-apriltag-runtime.mjs",
     "build:wasm": "node scripts/build-wasm.mjs",
     "dev": "npm run build:wasm && vite",
     "generate:icons": "node scripts/generate-pwa-icons.mjs",
