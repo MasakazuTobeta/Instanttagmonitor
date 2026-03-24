@@ -16,7 +16,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  detect-pages:
+    runs-on: ubuntu-latest
+    outputs:
+      has_pages: ${{ steps.pages.outputs.has_pages }}
+    steps:
+      - name: Detect Pages availability
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          HAS_PAGES="$(gh api repos/${{ github.repository }} --jq '.has_pages')"
+          echo "has_pages=${HAS_PAGES}" >> "$GITHUB_OUTPUT"
+
+          if [ "${HAS_PAGES}" != "true" ]; then
+            echo "::warning::GitHub Pages is not enabled for this repository. Build will run, but deployment will be skipped until Pages is enabled in repository settings."
+          fi
+
   build:
+    needs: detect-pages
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -42,7 +60,10 @@ jobs:
           path: dist
 
   deploy:
-    needs: build
+    needs:
+      - detect-pages
+      - build
+    if: needs.detect-pages.outputs.has_pages == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
