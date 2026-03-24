@@ -72,6 +72,9 @@ export default function App() {
         <ControlPanel
           isDetecting={isDetecting}
           cameraStatus={cameraStatus}
+          detections={detections}
+          detectorBackend={detectorBackend}
+          settings={settings}
           onToggleDetection={handleToggleDetection}
         />
       </div>

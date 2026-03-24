@@ -31,87 +31,57 @@ export function DetectionInfo({
   settings,
 }: DetectionInfoProps) {
   const performanceProfile = PERFORMANCE_PROFILES[settings.performanceProfile];
-  const selectionLabel =
-    settings.tagType === 'auto'
-      ? '自動判定 / すべてのタグ'
-      : `${settings.tagType} / ${settings.family === 'auto' ? 'family auto' : settings.family}`;
+  const currentDetection = detections[0];
+  const stateLabel = isDetecting ? 'LIVE' : 'STANDBY';
 
   return (
-    <div className="absolute top-4 left-4 right-20 z-10">
-      <div className="rounded-2xl border border-white/10 bg-black/65 p-4 text-white shadow-xl backdrop-blur-md">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="font-semibold tracking-wide">AprilTag Monitor</h2>
-            <p className="text-xs text-gray-400">WASM-ready detector pipeline / camera overlay demo</p>
+    <div className="pointer-events-none absolute left-4 right-20 top-[calc(env(safe-area-inset-top)+1rem)] z-10">
+      <div className="w-fit max-w-full rounded-[28px] border border-white/[0.12] bg-neutral-950/60 px-4 py-3 text-white shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.26em] text-white/[0.45]">Live Monitor</p>
+            <h2 className="mt-1 truncate text-lg font-semibold tracking-tight">AprilTag Monitor</h2>
           </div>
-          <div className="flex items-center gap-2">
-            {isDetecting && (
-              <>
-                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-sm text-green-400">検出中</span>
-              </>
-            )}
-            {!isDetecting && (
-              <span className="text-sm text-gray-400">停止中</span>
-            )}
+          <div
+            className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${
+              isDetecting
+                ? 'bg-emerald-500/16 text-emerald-300 ring-1 ring-emerald-400/30'
+                : 'bg-white/[0.08] text-white/[0.72] ring-1 ring-white/10'
+            }`}
+          >
+            {stateLabel}
           </div>
         </div>
 
-        <div className="grid gap-2 text-xs text-gray-200 sm:grid-cols-4">
-          <div className="rounded-xl bg-white/8 p-3">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-gray-400">Camera</p>
-            <p className="mt-1 font-medium text-white">{cameraLabels[cameraStatus]}</p>
+        <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/[0.72]">
+          <div className="rounded-full bg-white/[0.08] px-3 py-1.5">
+            {cameraLabels[cameraStatus]}
           </div>
-          <div className="rounded-xl bg-white/8 p-3">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-gray-400">Mode</p>
-            <p className="mt-1 font-medium text-white">{selectionLabel}</p>
+          <div className="rounded-full bg-white/[0.08] px-3 py-1.5">
+            {performanceProfile.label}
           </div>
-          <div className="rounded-xl bg-white/8 p-3">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-gray-400">Perf</p>
-            <p className="mt-1 font-medium text-white">{performanceProfile.label}</p>
-            <p className="mt-1 text-[11px] text-gray-400">{performanceProfile.description}</p>
+          <div className="rounded-full bg-white/[0.08] px-3 py-1.5">
+            {detectorBackend === 'wasm' ? 'WASM active' : 'Mock fallback'}
           </div>
-          <div className="rounded-xl bg-white/8 p-3">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-gray-400">Backend</p>
-            <p className="mt-1 font-medium text-white">{detectorBackend === 'wasm' ? 'WASM' : 'Mock JS'}</p>
-            <p className="mt-1 text-[11px] text-gray-400">
-              {detectorBackend === 'wasm' ? 'AssemblyScript contrast detector' : 'JS mock fallback detector'}
-            </p>
+          <div className="rounded-full bg-emerald-500/12 px-3 py-1.5 text-emerald-200">
+            {detections.length} hit{detections.length === 1 ? '' : 's'}
           </div>
         </div>
 
         {cameraMessage && cameraStatus !== 'ready' && (
-          <p className="mt-3 text-xs leading-5 text-amber-200">{cameraMessage}</p>
+          <p className="mt-3 max-w-[18rem] text-xs leading-5 text-amber-200">{cameraMessage}</p>
         )}
 
-        {detections.length > 0 ? (
-          <div className="space-y-2 mt-3">
-            <p className="text-sm text-gray-300">検出数: {detections.length}</p>
-            {detections.map((detection, index) => (
-              <div key={`${detection.id}-${index}`} className="space-y-1 rounded-xl bg-white/10 p-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-green-400">Tag ID: {detection.id}</span>
-                  <span className="text-xs text-gray-400">#{index + 1}</span>
-                </div>
-                {detection.tagType && (
-                  <div className="text-xs text-gray-300">
-                    <span className="text-gray-400">Type:</span> {detection.tagType}
-                  </div>
-                )}
-                {detection.family && (
-                  <div className="text-xs text-gray-300">
-                    <span className="text-gray-400">Family:</span> {detection.family}
-                  </div>
-                )}
-              </div>
-            ))}
+        {currentDetection && (
+          <div className="mt-3 rounded-2xl border border-emerald-400/[0.18] bg-emerald-500/10 px-3 py-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-mono text-sm text-emerald-300">ID {currentDetection.id}</span>
+              <span className="text-[11px] text-white/[0.45]">primary lock</span>
+            </div>
+            <p className="mt-1 text-xs text-white/[0.72]">
+              {currentDetection.tagType ?? 'Unknown'} / {currentDetection.family ?? 'auto'}
+            </p>
           </div>
-        ) : isDetecting ? (
-          <p className="mt-3 text-sm text-gray-400">タグをスキャン中...</p>
-        ) : cameraStatus === 'ready' ? (
-          <p className="text-sm text-gray-400 mt-2">検出を開始してください</p>
-        ) : (
-          <p className="mt-3 text-sm text-gray-400">カメラの準備が完了すると検出を開始できます</p>
         )}
       </div>
     </div>

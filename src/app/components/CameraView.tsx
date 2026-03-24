@@ -419,7 +419,7 @@ export function CameraView({
         ref={canvasRef}
         className="pointer-events-none absolute inset-0 h-full w-full object-cover"
       />
-      <div className="pointer-events-none absolute bottom-36 left-4 z-10 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200 backdrop-blur">
+      <div className="pointer-events-none absolute bottom-36 left-4 z-10 hidden rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200 backdrop-blur sm:block">
         {pipelineLabel}
       </div>
       {cameraStatus === 'requesting' && (

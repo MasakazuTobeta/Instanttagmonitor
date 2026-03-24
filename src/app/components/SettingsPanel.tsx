@@ -47,7 +47,7 @@ export function SettingsPanel({ settings, onSettingsChange }: SettingsPanelProps
     <>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="absolute top-4 right-4 z-20 rounded-full bg-black/70 p-3 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+        className="absolute right-4 top-[calc(env(safe-area-inset-top)+1rem)] z-20 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-black/[0.68] text-white backdrop-blur-sm transition-colors hover:bg-black/80"
         aria-label="設定"
       >
         <Settings className="w-6 h-6" />
