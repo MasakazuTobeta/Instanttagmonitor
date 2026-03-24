@@ -1,6 +1,12 @@
 import { Settings, X } from 'lucide-react';
 import { useState } from 'react';
-import { DetectionSettings, TAG_FAMILIES, TagType } from '../types/detection';
+import {
+  DetectionSettings,
+  PERFORMANCE_PROFILES,
+  PerformanceProfile,
+  TAG_FAMILIES,
+  TagType,
+} from '../types/detection';
 
 interface SettingsPanelProps {
   settings: DetectionSettings;
@@ -13,14 +19,22 @@ export function SettingsPanel({ settings, onSettingsChange }: SettingsPanelProps
   const handleTagTypeChange = (tagType: TagType | 'auto') => {
     onSettingsChange({
       tagType,
-      family: 'auto' // Reset family when tag type changes
+      family: 'auto',
+      performanceProfile: settings.performanceProfile,
     });
   };
 
   const handleFamilyChange = (family: string) => {
     onSettingsChange({
       ...settings,
-      family
+      family,
+    });
+  };
+
+  const handlePerformanceProfileChange = (performanceProfile: PerformanceProfile) => {
+    onSettingsChange({
+      ...settings,
+      performanceProfile,
     });
   };
 
@@ -149,6 +163,35 @@ export function SettingsPanel({ settings, onSettingsChange }: SettingsPanelProps
                   </div>
                 </div>
               )}
+
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-white">
+                  パフォーマンス
+                </label>
+                <div className="space-y-2">
+                  {(Object.entries(PERFORMANCE_PROFILES) as [PerformanceProfile, typeof PERFORMANCE_PROFILES[PerformanceProfile]][]).map(
+                    ([profile, config]) => (
+                      <label
+                        key={profile}
+                        className="flex cursor-pointer items-center gap-3 rounded-lg bg-gray-800 p-3 transition-colors hover:bg-gray-700"
+                      >
+                        <input
+                          type="radio"
+                          name="performanceProfile"
+                          value={profile}
+                          checked={settings.performanceProfile === profile}
+                          onChange={() => handlePerformanceProfileChange(profile)}
+                          className="h-4 w-4 text-green-500"
+                        />
+                        <div>
+                          <div className="text-white font-medium">{config.label}</div>
+                          <div className="text-xs text-gray-400">{config.description}</div>
+                        </div>
+                      </label>
+                    ),
+                  )}
+                </div>
+              </div>
 
               <div className="p-3 bg-blue-500/20 border border-blue-500/50 rounded-lg">
                 <p className="text-sm text-blue-200">

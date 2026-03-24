@@ -25,6 +25,8 @@
 
 ### 検出アーキテクチャ（将来実装）
 - **現状**: モックデータによるデモ動作
+  - Web Worker 経由のモック検出パイプラインを実装済み
+  - パフォーマンスプロファイルに応じて解像度と検出間隔を切り替え可能
 - **本番想定**:
   - 検出コア: WebAssembly (WASM) による高速処理
   - UI/カメラ制御: JavaScript
@@ -111,8 +113,12 @@
 ```
 /src/app/
 ├── App.tsx                    # メインアプリケーション
+├── lib/
+│   └── mockDetection.ts      # モック検出ロジック
 ├── types/
 │   └── detection.ts          # 型定義
+├── workers/
+│   └── mockDetectorWorker.ts # Workerベースのモック検出
 └── components/
     ├── CameraView.tsx        # カメラ映像取得・Canvas描画
     ├── DetectionInfo.tsx     # 検出結果表示パネル
@@ -140,6 +146,7 @@ interface DetectionResult {
 interface DetectionSettings {
   tagType: TagType | 'auto';
   family: string | 'auto';
+  performanceProfile: PerformanceProfile;
 }
 ```
 
@@ -167,6 +174,9 @@ interface DetectionSettings {
 ### 現在の状態
 - ✅ カメラアクセスとプレビュー表示は完全動作
 - ✅ UI/UX実装完了
+- ✅ Workerベースのモック検出パイプライン実装済み
+- ✅ GitHub Pages workflow / deploy 設定完了
+- ✅ パフォーマンスプロファイルによる基本最適化を実装済み
 - ⚠️ 検出処理はモックデータ（WASM統合待ち）
 
 ### ブラウザ要件
@@ -176,7 +186,8 @@ interface DetectionSettings {
 
 ### パフォーマンス考慮事項
 - スマホ性能に依存
-- 実用化には解像度・フレームレート調整が必要
+- 基本的な解像度・検出間隔の切り替えは実装済み
+- 実用化には実機ベースの追加チューニングが必要
 - Worker分離による最適化が推奨
 
 ## 参考情報
@@ -194,6 +205,20 @@ interface DetectionSettings {
 - **getUserMedia**: 標準Web API、広範なブラウザサポート
 - **Canvas**: 低レベル描画制御、オーバーレイ表示に最適
 
+## GitHub運用メモ
+
+### GitHub操作の基本方針
+- GitHub Actions / PR / Issue / repository状態の確認は `gh` CLI を優先する
+- ローカルの履歴操作や作業ツリー管理は `git` を使う
+
+### よく使うコマンド
+- `gh run list`
+- `gh run view <run-id>`
+- `gh run view <run-id> --log-failed`
+- `gh run watch <run-id>`
+- `gh pr view`
+- `gh pr create`
+
 ## 開発ステータス
 
 ### 完了済み
@@ -204,10 +229,12 @@ interface DetectionSettings {
 - ✅ 自動判定モード
 - ✅ 検出結果のオーバーレイ表示
 - ✅ モックデータでのデモ動作
+- ✅ Web Workerベースの検出パイプライン整理
+- ✅ GitHub Pages デプロイ設定と本番デプロイ確認
+- ✅ パフォーマンスプロファイルによる基本最適化
 
 ### 次のステップ
 - [ ] WASM検出器の統合
-- [ ] Web Worker実装
-- [ ] パフォーマンス最適化
 - [ ] 実機テスト・調整
-- [ ] GitHub Pages デプロイ設定
+- [ ] 実機ベースの追加パフォーマンスチューニング
+- [ ] Node 24系ランナー移行を見据えた Actions 更新

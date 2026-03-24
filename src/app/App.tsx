@@ -13,6 +13,7 @@ export default function App() {
   const [settings, setSettings] = useState<DetectionSettings>({
     tagType: 'auto',
     family: 'auto',
+    performanceProfile: 'balanced',
   });
 
   const handleToggleDetection = () => {
@@ -35,7 +36,7 @@ export default function App() {
     setCameraStatus(status);
     setCameraMessage(message);
 
-    if (status !== 'ready') {
+    if (status === 'error' || status === 'unsupported') {
       setIsDetecting(false);
     }
   };

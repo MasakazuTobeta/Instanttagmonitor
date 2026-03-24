@@ -53,11 +53,11 @@ export function ControlPanel({
               <p className="font-bold">使い方</p>
               <ul className="list-disc list-inside space-y-1 text-xs text-gray-300">
                 <li>「検出開始」ボタンを押してスキャンを開始</li>
-                <li>検出ループは 3 フレームごとに Worker で実行されます</li>
+                <li>設定からパフォーマンスプロファイルを切り替えられます</li>
                 <li>タグは緑色の枠と ID・タイプ表示でオーバーレイされます</li>
               </ul>
               <p className="mt-2 text-xs text-gray-400">
-                ※現在はデモモードです。実際の AprilTag 検出は今後 WASM 検出器に差し替えられる構成へ整理しています。
+                ※現在はデモモードです。Worker ベースの検出間隔と解像度切替で、軽量端末でも試しやすい構成にしています。
               </p>
             </div>
           </div>

@@ -1,4 +1,9 @@
-import { CameraStatus, DetectionResult, DetectionSettings } from '../types/detection';
+import {
+  CameraStatus,
+  DetectionResult,
+  DetectionSettings,
+  PERFORMANCE_PROFILES,
+} from '../types/detection';
 
 interface DetectionInfoProps {
   detections: DetectionResult[];
@@ -22,6 +27,7 @@ export function DetectionInfo({
   cameraMessage,
   settings,
 }: DetectionInfoProps) {
+  const performanceProfile = PERFORMANCE_PROFILES[settings.performanceProfile];
   const selectionLabel =
     settings.tagType === 'auto'
       ? '自動判定 / すべてのタグ'
@@ -48,7 +54,7 @@ export function DetectionInfo({
           </div>
         </div>
 
-        <div className="grid gap-2 text-xs text-gray-200 sm:grid-cols-2">
+        <div className="grid gap-2 text-xs text-gray-200 sm:grid-cols-3">
           <div className="rounded-xl bg-white/8 p-3">
             <p className="text-[11px] uppercase tracking-[0.18em] text-gray-400">Camera</p>
             <p className="mt-1 font-medium text-white">{cameraLabels[cameraStatus]}</p>
@@ -56,6 +62,11 @@ export function DetectionInfo({
           <div className="rounded-xl bg-white/8 p-3">
             <p className="text-[11px] uppercase tracking-[0.18em] text-gray-400">Mode</p>
             <p className="mt-1 font-medium text-white">{selectionLabel}</p>
+          </div>
+          <div className="rounded-xl bg-white/8 p-3">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-gray-400">Perf</p>
+            <p className="mt-1 font-medium text-white">{performanceProfile.label}</p>
+            <p className="mt-1 text-[11px] text-gray-400">{performanceProfile.description}</p>
           </div>
         </div>
 

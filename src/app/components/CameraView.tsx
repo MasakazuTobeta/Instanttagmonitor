@@ -6,6 +6,7 @@ import {
   DetectionSettings,
   DetectionWorkerRequest,
   DetectionWorkerResponse,
+  PERFORMANCE_PROFILES,
 } from '../types/detection';
 
 interface CameraViewProps {
@@ -15,14 +16,13 @@ interface CameraViewProps {
   onCameraStateChange: (status: CameraStatus, message?: string) => void;
 }
 
-const DETECTION_FRAME_SKIP = 3;
-
 export function CameraView({
   isDetecting,
   settings,
   onDetectionUpdate,
   onCameraStateChange,
 }: CameraViewProps) {
+  const performanceConfig = PERFORMANCE_PROFILES[settings.performanceProfile];
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -31,6 +31,7 @@ export function CameraView({
   const workerBusyRef = useRef(false);
   const frameRef = useRef(0);
   const isDetectingRef = useRef(isDetecting);
+  const lastProfileRef = useRef(settings.performanceProfile);
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>('requesting');
   const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +59,33 @@ export function CameraView({
 
     stopDetection();
   }, [cameraStatus, isDetecting, settings]);
+
+  useEffect(() => {
+    if (lastProfileRef.current === settings.performanceProfile) {
+      return;
+    }
+
+    lastProfileRef.current = settings.performanceProfile;
+    startCamera();
+  }, [settings.performanceProfile]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopDetection();
+        return;
+      }
+
+      if (isDetectingRef.current && cameraStatus === 'ready') {
+        startDetection();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [cameraStatus, settings]);
 
   const updateCameraState = (status: CameraStatus, message?: string) => {
     setCameraStatus(status);
@@ -115,6 +143,7 @@ export function CameraView({
   };
 
   const startCamera = async () => {
+    stopDetection();
     stopCamera();
     updateCameraState('requesting');
 
@@ -133,8 +162,8 @@ export function CameraView({
         audio: false,
         video: {
           facingMode: { ideal: 'environment' },
-          width: { ideal: 640 },
-          height: { ideal: 480 },
+          width: { ideal: performanceConfig.width },
+          height: { ideal: performanceConfig.height },
         },
       });
 
@@ -163,6 +192,10 @@ export function CameraView({
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
   };
 
   const startDetection = () => {
@@ -183,7 +216,7 @@ export function CameraView({
       resizeCanvas();
       frameRef.current += 1;
 
-      if (!workerBusyRef.current && frameRef.current % DETECTION_FRAME_SKIP === 0) {
+      if (!workerBusyRef.current && frameRef.current % performanceConfig.frameSkip === 0) {
         const request: DetectionWorkerRequest = {
           type: 'detect',
           width: video.videoWidth || 640,
@@ -316,7 +349,7 @@ export function CameraView({
         className="pointer-events-none absolute inset-0 h-full w-full object-cover"
       />
       <div className="pointer-events-none absolute bottom-36 left-4 z-10 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200 backdrop-blur">
-        Demo detector / Worker-ready pipeline
+        {performanceConfig.label} / Worker-ready pipeline
       </div>
       {cameraStatus === 'requesting' && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">

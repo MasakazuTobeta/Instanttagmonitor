@@ -1,6 +1,7 @@
 export type TagType = 'AprilTag' | 'AprilTag2' | 'AprilTag3' | 'ArUco';
 export type CameraStatus = 'requesting' | 'ready' | 'error' | 'unsupported';
 export type DetectionCorner = [number, number];
+export type PerformanceProfile = 'battery' | 'balanced' | 'precision';
 
 export interface DetectionResult {
   id: number;
@@ -41,9 +42,42 @@ export const TAG_FAMILIES: Record<TagType, string[]> = {
   ]
 };
 
+export interface PerformanceProfileConfig {
+  label: string;
+  description: string;
+  width: number;
+  height: number;
+  frameSkip: number;
+}
+
+export const PERFORMANCE_PROFILES: Record<PerformanceProfile, PerformanceProfileConfig> = {
+  battery: {
+    label: 'Battery Saver',
+    description: '640x480 / 5フレームごとに検出',
+    width: 640,
+    height: 480,
+    frameSkip: 5,
+  },
+  balanced: {
+    label: 'Balanced',
+    description: '960x540 / 3フレームごとに検出',
+    width: 960,
+    height: 540,
+    frameSkip: 3,
+  },
+  precision: {
+    label: 'Precision',
+    description: '1280x720 / 2フレームごとに検出',
+    width: 1280,
+    height: 720,
+    frameSkip: 2,
+  },
+};
+
 export interface DetectionSettings {
   tagType: TagType | 'auto';
   family: string | 'auto';
+  performanceProfile: PerformanceProfile;
 }
 
 export interface DetectionJob {
