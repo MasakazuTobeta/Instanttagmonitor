@@ -26,7 +26,7 @@ export function SettingsPanel({ settings, onSettingsChange, installState }: Sett
   const handleSelectAllFamilies = () => {
     onSettingsChange({
       ...settings,
-      families: 'all',
+      families: isAllFamiliesSelected ? [] : 'all',
     });
   };
 
