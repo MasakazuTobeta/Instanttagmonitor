@@ -103,27 +103,22 @@ export const PERFORMANCE_PROFILES: Record<PerformanceProfile, PerformanceProfile
 };
 
 export interface DetectionSettings {
-  tagType: TagType | 'auto';
-  family: string | 'auto';
+  families: RealtimeDetectorFamily[] | 'all';
   performanceProfile: PerformanceProfile;
 }
 
 export function getRealtimeDetectorFamilies(settings: DetectionSettings): RealtimeDetectorFamily[] {
-  if (settings.tagType === 'ArUco') {
-    return [];
+  if (settings.families === 'all') {
+    return [...REALTIME_DETECTOR_FAMILIES];
   }
 
-  if (settings.family !== 'auto') {
-    return settings.family in REALTIME_DETECTOR_FAMILY_MASKS
-      ? [settings.family as RealtimeDetectorFamily]
-      : [];
-  }
+  return settings.families.filter(
+    (family): family is RealtimeDetectorFamily => family in REALTIME_DETECTOR_FAMILY_MASKS,
+  );
+}
 
-  if (settings.tagType === 'AprilTag2' || settings.tagType === 'AprilTag3') {
-    return ['tag36h11', 'tag25h9', 'tag16h5'];
-  }
-
-  return [...REALTIME_DETECTOR_FAMILIES];
+export function areAllRealtimeFamiliesSelected(settings: DetectionSettings) {
+  return settings.families === 'all' || getRealtimeDetectorFamilies(settings).length === REALTIME_DETECTOR_FAMILIES.length;
 }
 
 export function getRealtimeDetectorFamilyMask(settings: DetectionSettings) {
@@ -137,18 +132,30 @@ export function isRealtimeDetectionSupported(settings: DetectionSettings) {
   return getRealtimeDetectorFamilies(settings).length > 0;
 }
 
-export function getRealtimeDetectorLabel(settings: DetectionSettings) {
+export function getRealtimeDetectorSelectionLabel(settings: DetectionSettings) {
   const families = getRealtimeDetectorFamilies(settings);
 
   if (families.length === 0) {
-    return 'ArUco unavailable';
+    return 'None';
+  }
+
+  if (areAllRealtimeFamiliesSelected(settings)) {
+    return 'ALL';
   }
 
   if (families.length === 1) {
-    return `AprilTag ${families[0]}`;
+    return families[0];
   }
 
-  return `AprilTag ${families.length} families`;
+  if (families.length === 2) {
+    return families.join(', ');
+  }
+
+  return `${families.length} families`;
+}
+
+export function getRealtimeDetectorLabel(settings: DetectionSettings) {
+  return `AprilTag ${getRealtimeDetectorSelectionLabel(settings)}`;
 }
 
 export interface DetectionJob {

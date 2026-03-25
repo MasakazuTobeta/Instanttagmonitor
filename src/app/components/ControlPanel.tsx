@@ -13,6 +13,7 @@ import {
   DetectorBackend,
   getRealtimeDetectorFamilies,
   getRealtimeDetectorLabel,
+  getRealtimeDetectorSelectionLabel,
   PERFORMANCE_PROFILES,
 } from '../types/detection';
 
@@ -44,10 +45,7 @@ export function ControlPanel({
   const isReady = cameraStatus === 'ready';
   const performanceProfile = PERFORMANCE_PROFILES[settings.performanceProfile];
   const realtimeFamilies = getRealtimeDetectorFamilies(settings);
-  const selectionLabel =
-    settings.tagType === 'auto'
-      ? '自動判定 / AprilTag families'
-      : `${settings.tagType} / ${settings.family === 'auto' ? 'family auto' : settings.family}`;
+  const selectionLabel = getRealtimeDetectorSelectionLabel(settings);
 
   return (
     <>
@@ -140,7 +138,7 @@ export function ControlPanel({
                   </div>
                   <div className="rounded-2xl bg-white/[0.06] p-3">
                     <p className="text-[10px] uppercase tracking-[0.2em] text-white/[0.4]">Mode</p>
-                    <p className="mt-2 font-medium">{selectionLabel}</p>
+                    <p className="mt-2 font-medium">AprilTag / {selectionLabel}</p>
                   </div>
                   <div className="rounded-2xl bg-white/[0.06] p-3">
                     <p className="text-[10px] uppercase tracking-[0.2em] text-white/[0.4]">Perf</p>
@@ -183,7 +181,7 @@ export function ControlPanel({
                             <span className="text-[11px] text-white/[0.38]">#{index + 1}</span>
                           </div>
                           <p className="mt-1 text-sm text-white/[0.75]">
-                            {detection.tagType ?? 'Unknown'} / {detection.family ?? 'auto'}
+                            {detection.family ?? 'Unknown family'}
                           </p>
                         </div>
                       ))}
@@ -200,9 +198,11 @@ export function ControlPanel({
                 <div className="rounded-[28px] bg-white/[0.05] p-4 text-sm text-white/[0.74]">
                   <h4 className="font-semibold text-white">使い方</h4>
                   <p className="mt-3">「検出開始」を押すとスキャンを開始します。</p>
-                  <p className="mt-2">設定からパフォーマンスプロファイルとタグ種類を切り替えられます。</p>
+                  <p className="mt-2">設定からパフォーマンスプロファイルと検出 family を切り替えられます。</p>
                   <p className="mt-2">
-                    AprilTag は複数 family を実検出できます。ArUco はまだ未対応なので、AprilTag 側を選んで利用してください。
+                    <span className="font-mono">ALL</span>
+                    {' '}
+                    を選ぶと対応済み family をまとめて検出します。必要な family だけチェックして絞り込むこともできます。
                   </p>
                 </div>
               </div>

@@ -19,7 +19,6 @@ const REALTIME_DETECTOR_FAMILY_MASKS = {
   tagStandard41h12: 1 << 5,
   tagStandard52h13: 1 << 6,
 };
-const APRILTAG_V2_FAMILIES = ['tag36h11', 'tag25h9', 'tag16h5'];
 
 let detectorPromise = null;
 let detectorUnavailable = false;
@@ -27,19 +26,11 @@ let currentProfile = '';
 let currentFamilyMask = 0;
 
 function getSelectedFamilies(settings) {
-  if (settings.tagType === 'ArUco') {
-    return [];
+  if (settings.families === 'all') {
+    return REALTIME_DETECTOR_FAMILIES;
   }
 
-  if (settings.family !== 'auto') {
-    return settings.family in REALTIME_DETECTOR_FAMILY_MASKS ? [settings.family] : [];
-  }
-
-  if (settings.tagType === 'AprilTag2' || settings.tagType === 'AprilTag3') {
-    return APRILTAG_V2_FAMILIES;
-  }
-
-  return REALTIME_DETECTOR_FAMILIES;
+  return settings.families.filter(family => family in REALTIME_DETECTOR_FAMILY_MASKS);
 }
 
 function getFamilyMask(settings) {
@@ -51,10 +42,6 @@ function getFamilyMask(settings) {
 
 function selectionSupported(settings) {
   return getFamilyMask(settings) !== 0;
-}
-
-function resolveTagType(settings) {
-  return settings.tagType === 'auto' ? 'AprilTag' : settings.tagType;
 }
 
 function getDetectorOptions(settings) {
@@ -151,7 +138,7 @@ function applyFamilySelection(detector, settings) {
   detector.setDetectorFamilies(familyMask);
 }
 
-function parseDetections(detector, grayscale, width, height, settings) {
+function parseDetections(detector, grayscale, width, height) {
   const bufferPointer = detector.setImageBuffer(width, height, width);
   detector.module.HEAPU8.set(grayscale, bufferPointer);
 
@@ -168,7 +155,7 @@ function parseDetections(detector, grayscale, width, height, settings) {
 
   return detections.map(detection => ({
     id: detection.id,
-    tagType: resolveTagType(settings),
+    tagType: 'AprilTag',
     family: detection.family,
     corners: detection.corners.map(corner => [corner.x, corner.y]),
   }));
@@ -210,7 +197,6 @@ self.onmessage = async event => {
       grayscale,
       event.data.width,
       event.data.height,
-      event.data.settings,
     );
 
     self.postMessage({

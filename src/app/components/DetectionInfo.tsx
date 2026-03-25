@@ -3,7 +3,6 @@ import {
   DetectionResult,
   DetectionSettings,
   DetectorBackend,
-  getRealtimeDetectorFamilies,
   getRealtimeDetectorLabel,
   PERFORMANCE_PROFILES,
 } from '../types/detection';
@@ -33,7 +32,6 @@ export function DetectionInfo({
   settings,
 }: DetectionInfoProps) {
   const performanceProfile = PERFORMANCE_PROFILES[settings.performanceProfile];
-  const realtimeFamilies = getRealtimeDetectorFamilies(settings);
   const currentDetection = detections[0];
   const stateLabel = isDetecting ? 'LIVE' : 'STANDBY';
 
@@ -82,16 +80,14 @@ export function DetectionInfo({
               <span className="text-[11px] text-white/[0.45]">primary lock</span>
             </div>
             <p className="mt-1 text-xs text-white/[0.72]">
-              {currentDetection.tagType ?? 'Unknown'} / {currentDetection.family ?? 'auto'}
+              {currentDetection.family ?? 'Unknown family'}
             </p>
           </div>
         )}
 
         {!currentDetection && detectorBackend !== 'wasm' && (
           <p className="mt-3 text-xs leading-5 text-white/[0.58]">
-            {realtimeFamilies.length === 0
-              ? 'ArUco はまだ実検出に未対応です。AprilTag ファミリーに切り替えるとブラウザ検出を利用できます。'
-              : 'WASM 検出器を利用できませんでした。ページを再読み込みして、もう一度スキャンを試してください。'}
+            WASM 検出器を利用できませんでした。ページを再読み込みして、もう一度スキャンを試してください。
           </p>
         )}
       </div>

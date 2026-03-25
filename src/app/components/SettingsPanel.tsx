@@ -2,12 +2,13 @@ import { CheckCircle2, Download, PlusSquare, Settings, Share2, X } from 'lucide-
 import { useState } from 'react';
 import { InstallPromptState } from '../lib/useInstallPrompt';
 import {
+  areAllRealtimeFamiliesSelected,
   DetectionSettings,
+  getRealtimeDetectorFamilies,
   PERFORMANCE_PROFILES,
   PerformanceProfile,
   REALTIME_DETECTOR_FAMILIES,
-  TAG_FAMILIES,
-  TagType,
+  RealtimeDetectorFamily,
 } from '../types/detection';
 
 interface SettingsPanelProps {
@@ -19,19 +20,34 @@ interface SettingsPanelProps {
 export function SettingsPanel({ settings, onSettingsChange, installState }: SettingsPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const selectedFamilies = getRealtimeDetectorFamilies(settings);
+  const isAllFamiliesSelected = areAllRealtimeFamiliesSelected(settings);
 
-  const handleTagTypeChange = (tagType: TagType | 'auto') => {
+  const handleSelectAllFamilies = () => {
     onSettingsChange({
-      tagType,
-      family: 'auto',
-      performanceProfile: settings.performanceProfile,
+      ...settings,
+      families: 'all',
     });
   };
 
-  const handleFamilyChange = (family: string) => {
+  const handleToggleFamily = (family: RealtimeDetectorFamily) => {
+    const currentFamilies = new Set(selectedFamilies);
+
+    if (currentFamilies.has(family)) {
+      currentFamilies.delete(family);
+    } else {
+      currentFamilies.add(family);
+    }
+
+    const nextFamilies = REALTIME_DETECTOR_FAMILIES.filter(candidate => currentFamilies.has(candidate));
+
+    if (nextFamilies.length === 0) {
+      return;
+    }
+
     onSettingsChange({
       ...settings,
-      family,
+      families: nextFamilies.length === REALTIME_DETECTOR_FAMILIES.length ? 'all' : nextFamilies,
     });
   };
 
@@ -41,11 +57,6 @@ export function SettingsPanel({ settings, onSettingsChange, installState }: Sett
       performanceProfile,
     });
   };
-
-  const availableFamilies =
-    settings.tagType === 'auto'
-      ? []
-      : TAG_FAMILIES[settings.tagType as TagType];
 
   const installButtonLabel = installState.isInstalled
     ? '追加済み'
@@ -83,7 +94,7 @@ export function SettingsPanel({ settings, onSettingsChange, installState }: Sett
         className="absolute right-4 top-[calc(env(safe-area-inset-top)+1rem)] z-20 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-black/[0.68] text-white backdrop-blur-sm transition-colors hover:bg-black/80"
         aria-label="設定"
       >
-        <Settings className="w-6 h-6" />
+        <Settings className="h-6 w-6" />
       </button>
 
       {isOpen && (
@@ -95,21 +106,25 @@ export function SettingsPanel({ settings, onSettingsChange, installState }: Sett
             className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-lg bg-gray-900 shadow-2xl"
             onClick={event => event.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <div className="flex items-center justify-between border-b border-gray-700 p-4">
               <h2 className="text-xl font-bold text-white">検出設定</h2>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-2 hover:bg-gray-800 rounded-full transition-colors"
+                className="rounded-full p-2 transition-colors hover:bg-gray-800"
                 aria-label="閉じる"
               >
-                <X className="w-5 h-5 text-white" />
+                <X className="h-5 w-5 text-white" />
               </button>
             </div>
 
-            <div className="p-4 space-y-6 overflow-y-auto max-h-[calc(80vh-80px)]">
+            <div className="max-h-[calc(80vh-80px)] space-y-6 overflow-y-auto p-4">
               <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">
                 <p>
-                  現在の実検出は Worker 上の AprilTag WASM を使っています。AprilTag family は複数対応済みで、ArUco はまだ未対応です。
+                  現在の実検出は Worker 上の AprilTag WASM を使っています。family は複数選択でき、
+                  {' '}
+                  <span className="font-mono">ALL</span>
+                  {' '}
+                  でまとめて検出できます。
                 </p>
                 <p className="mt-2 text-xs leading-6 text-emerald-50/80">
                   対応 family:
@@ -183,95 +198,45 @@ export function SettingsPanel({ settings, onSettingsChange, installState }: Sett
               </div>
 
               <div className="space-y-2">
-                <label className="block text-sm font-bold text-white">
-                  タグの種類
-                </label>
+                <label className="block text-sm font-bold text-white">検出 family</label>
                 <div className="space-y-2">
                   <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-gray-800 p-3 transition-colors hover:bg-gray-700">
                     <input
-                      type="radio"
-                      name="tagType"
-                      value="auto"
-                      checked={settings.tagType === 'auto'}
-                      onChange={() => handleTagTypeChange('auto')}
-                      className="w-4 h-4 text-green-500"
+                      type="checkbox"
+                      checked={isAllFamiliesSelected}
+                      onChange={handleSelectAllFamilies}
+                      className="h-4 w-4 rounded text-green-500"
                     />
                     <div>
-                      <div className="text-white font-medium">自動判定</div>
-                      <div className="text-xs text-gray-400">対応済みの AprilTag family を自動的に検出</div>
+                      <div className="text-white font-medium">ALL</div>
+                      <div className="text-xs text-gray-400">対応済みの family をすべてまとめて検出</div>
                     </div>
                   </label>
 
-                  {(['AprilTag', 'AprilTag2', 'AprilTag3', 'ArUco'] as const).map(
-                    (type) => (
-                      <label
-                        key={type}
-                        className="flex cursor-pointer items-center gap-3 rounded-lg bg-gray-800 p-3 transition-colors hover:bg-gray-700"
-                      >
-                        <input
-                          type="radio"
-                          name="tagType"
-                          value={type}
-                          checked={settings.tagType === type}
-                          onChange={() => handleTagTypeChange(type)}
-                          className="w-4 h-4 text-green-500"
-                        />
-                        <div className="text-white font-medium">{type}</div>
-                      </label>
-                    )
-                  )}
-                </div>
-              </div>
-
-              {settings.tagType !== 'auto' && (
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-white">
-                    ファミリー
-                  </label>
-                  <div className="space-y-2">
-                    <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-gray-800 p-3 transition-colors hover:bg-gray-700">
+                  {REALTIME_DETECTOR_FAMILIES.map(family => (
+                    <label
+                      key={family}
+                      className="flex cursor-pointer items-center gap-3 rounded-lg bg-gray-800 p-3 transition-colors hover:bg-gray-700"
+                    >
                       <input
-                        type="radio"
-                        name="family"
-                        value="auto"
-                        checked={settings.family === 'auto'}
-                        onChange={() => handleFamilyChange('auto')}
-                        className="w-4 h-4 text-green-500"
+                        type="checkbox"
+                        checked={selectedFamilies.includes(family)}
+                        onChange={() => handleToggleFamily(family)}
+                        className="h-4 w-4 rounded text-green-500"
                       />
                       <div>
-                        <div className="text-white font-medium">自動判定</div>
+                        <div className="font-mono text-sm text-white">{family}</div>
                         <div className="text-xs text-gray-400">
-                          すべてのファミリーを検出
+                          {isAllFamiliesSelected ? 'ALL に含まれています' : 'この family を検出対象に含めます'}
                         </div>
                       </div>
                     </label>
-
-                    {availableFamilies.map((family) => (
-                      <label
-                        key={family}
-                        className="flex cursor-pointer items-center gap-3 rounded-lg bg-gray-800 p-3 transition-colors hover:bg-gray-700"
-                      >
-                        <input
-                          type="radio"
-                          name="family"
-                          value={family}
-                          checked={settings.family === family}
-                          onChange={() => handleFamilyChange(family)}
-                          className="w-4 h-4 text-green-500"
-                        />
-                        <div className="text-white font-mono text-sm">
-                          {family}
-                        </div>
-                      </label>
-                    ))}
-                  </div>
+                  ))}
                 </div>
-              )}
+              </div>
 
               <div className="space-y-2">
-                <label className="block text-sm font-bold text-white">
-                  パフォーマンス
-                </label>
+                <label className="block text-sm font-bold text-white">パフォーマンス</label>
                 <div className="space-y-2">
                   {(Object.entries(PERFORMANCE_PROFILES) as [PerformanceProfile, typeof PERFORMANCE_PROFILES[PerformanceProfile]][]).map(
                     ([profile, config]) => (
@@ -288,7 +253,7 @@ export function SettingsPanel({ settings, onSettingsChange, installState }: Sett
                           className="h-4 w-4 text-green-500"
                         />
                         <div>
-                          <div className="text-white font-medium">{config.label}</div>
+                          <div className="font-medium text-white">{config.label}</div>
                           <div className="text-xs text-gray-400">{config.description}</div>
                         </div>
                       </label>
@@ -297,17 +262,19 @@ export function SettingsPanel({ settings, onSettingsChange, installState }: Sett
                 </div>
               </div>
 
-              <div className="p-3 bg-blue-500/20 border border-blue-500/50 rounded-lg">
+              <div className="rounded-lg border border-blue-500/50 bg-blue-500/20 p-3">
                 <p className="text-sm text-blue-200">
-                  <strong>自動判定モード:</strong> すべての種類のタグを同時に検出します。特定のタグのみを検出したい場合は、種類とファミリーを指定してください。
+                  <strong><span className="font-mono">ALL</span> モード:</strong>
+                  {' '}
+                  すべての対応 family を同時に検出します。特定のタグだけに絞りたい場合は、必要な family だけチェックしてください。
                 </p>
               </div>
             </div>
 
-            <div className="p-4 border-t border-gray-700">
+            <div className="border-t border-gray-700 p-4">
               <button
                 onClick={() => setIsOpen(false)}
-                className="w-full py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-colors"
+                className="w-full rounded-lg bg-green-500 py-3 font-bold text-white transition-colors hover:bg-green-600"
               >
                 完了
               </button>

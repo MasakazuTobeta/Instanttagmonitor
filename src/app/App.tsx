@@ -19,8 +19,7 @@ export default function App() {
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>('requesting');
   const [cameraMessage, setCameraMessage] = useState<string | undefined>();
   const [settings, setSettings] = useState<DetectionSettings>({
-    tagType: 'auto',
-    family: 'auto',
+    families: 'all',
     performanceProfile: 'balanced',
   });
 

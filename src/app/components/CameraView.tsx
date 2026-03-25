@@ -310,7 +310,7 @@ export function CameraView({
         if (!isRealtimeDetectionSupported(settings)) {
           lastBackendRef.current = 'unavailable';
           clearDetectionHistory();
-          setPipelineLabel('ArUco detector unavailable');
+          setPipelineLabel('No detector families selected');
           clearCanvas();
           onDetectionUpdate(EMPTY_DETECTIONS, 'unavailable');
           animationFrameRef.current = requestAnimationFrame(detectFrame);
@@ -441,7 +441,7 @@ export function CameraView({
       ctx.fillStyle = '#bbf7d0';
       ctx.font = '12px sans-serif';
       ctx.fillText(
-        `${detection.tagType ?? 'Unknown'} / ${detection.family ?? 'auto'}`,
+        detection.family ?? 'Unknown family',
         anchorX + 8,
         anchorY + 26,
       );
