@@ -135,7 +135,7 @@ function applyDetectorOptions(detector, settings) {
     options.quad_sigma,
     1,
     1,
-    8,
+    0,
     0,
     0,
   );

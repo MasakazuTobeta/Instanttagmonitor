@@ -227,7 +227,7 @@ async function main() {
     const detectRaw = Module.cwrap('atagjs_detect', 'number', []);
 
     init();
-    setDetectorOptions(1.0, 0.0, 1, 1, 8, 0, 0);
+    setDetectorOptions(1.0, 0.0, 1, 1, 0, 0, 0);
 
     const results = [];
 
